@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Nivoxar</title>
+    
+    <link rel="stylesheet" href="../public/styles/DashboardPage.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../public/styles/navbar.css">
+</head>
+<body>
+    <!-- ✅ Navbar Container -->
+    <div id="navbarContainer"></div>
+    
+    <!-- Dashboard Content -->
+    <div class="dashboard-container">
+        <!-- Background Effects -->
+        <div class="background-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+        </div>
+        <div class="grid-overlay"></div>
+
+        <!-- Main Container -->
+        <div class="dashboard-container">
+            <!-- Header -->
+            <header class="dashboard-header">
+                <div class="header-content">
+                    <div class="header-left">
+                        <h1 class="dashboard-title">
+                            <i class="fas fa-th-large"></i>
+                            Dashboard
+                        </h1>
+                        <p class="dashboard-subtitle" id="dashboardSubtitle">
+                            Welcome back! <span class="status-indicator">●</span>
+                        </p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="header-btn notification-btn" aria-label="Notifications">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge">3</span>
+                        </button>
+                        <button class="header-btn profile-btn" aria-label="Profile">
+                            <i class="fas fa-user"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="loading-state" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p>Loading your tasks...</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <p id="errorText">An error occurred</p>
+                <button class="error-close" id="errorClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Stats Section -->
+            <section class="stats-section">
+                <div class="stat-card total">
+                    <div class="stat-icon">
+                        <i class="fas fa-tasks"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="totalTasks">0</span>
+                        <p class="stat-label">Total Tasks</p>
+                    </div>
+                </div>
+
+                <div class="stat-card completed">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="completedTasks">0</span>
+                        <p class="stat-label">Completed</p>
+                    </div>
+                </div>
+
+                <div class="stat-card pending">
+                    <div class="stat-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="pendingTasks">0</span>
+                        <p class="stat-label">Pending</p>
+                    </div>
+                </div>
+
+                <div class="stat-card overdue">
+                    <div class="stat-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="overdueTasks">0</span>
+                        <p class="stat-label">Overdue</p>
+                    </div>
+                </div>
+
+                <div class="stat-card subtasks">
+                    <div class="stat-icon">
+                        <i class="fas fa-list-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="subTasksCount">0</span>
+                        <p class="stat-label">SubTasks</p>
+                    </div>
+                </div>
+
+                <div class="stat-card recurring">
+                    <div class="stat-icon">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-value" id="recurringCount">0</span>
+                        <p class="stat-label">Recurring</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Main Content Grid: Tasks + Quick Actions -->
+            <div class="dashboard-main">
+                <!-- Tasks Section (Left Column) -->
+                <section class="tasks-section">
+                    <div class="section-header">
+                        <h2 class="section-title">
+                            <i class="fas fa-list"></i> Your Tasks
+                        </h2>
+                        <button class="btn btn-primary" id="createTaskBtn">
+                            <i class="fas fa-plus"></i> New Task
+                        </button>
+                    </div>
+
+                    <!-- Tasks List -->
+                    <div id="tasksList" class="tasks-list">
+                        <!-- Tasks will be dynamically inserted here by JS -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyState" class="empty-state" style="display: none;">
+                        <i class="fas fa-inbox"></i>
+                        <h3>No tasks yet</h3>
+                        <p>Create your first task to get started!</p>
+                        <button class="btn btn-primary" id="emptyStateBtn">
+                            <i class="fas fa-plus"></i> Create Task
+                        </button>
+                    </div>
+
+                    <!-- Pagination Controls -->
+                    <div id="paginationControls" class="pagination-controls" style="display: none;">
+                        <button class="pagination-btn" id="prevBtn" aria-label="Previous page">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span class="pagination-info" id="paginationInfo">Page 1 of 1</span>
+                        <button class="pagination-btn" id="nextBtn" aria-label="Next page">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Quick Actions (Right Column) -->
+                <aside class="quick-actions">
+                    <h3 class="quick-actions-title">Quick Actions</h3>
+                    <div class="quick-actions-grid">
+                        <button class="quick-action-btn active" data-action="all">
+                            <i class="fas fa-th"></i>
+                            <span>All Tasks</span>
+                        </button>
+                        <button class="quick-action-btn" data-action="high-priority">
+                            <i class="fas fa-flag"></i>
+                            <span>High Priority</span>
+                        </button>
+                        <button class="quick-action-btn" data-action="today">
+                            <i class="fas fa-calendar-day"></i>
+                            <span>Due Today</span>
+                        </button>
+                        <button class="quick-action-btn" data-action="personal">
+                            <i class="fas fa-user"></i>
+                            <span>Personal</span>
+                        </button>
+                        <button class="quick-action-btn" data-action="work">
+                            <i class="fas fa-briefcase"></i>
+                            <span>Work</span>
+                        </button>
+                        <button class="quick-action-btn" data-action="recurring">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Recurring</span>
+                        </button>
+                    </div>
+                </aside>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="../scripts/DashboardPage.js"></script>
+</body>
+</html>

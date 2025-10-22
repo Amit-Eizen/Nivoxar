@@ -1,0 +1,24 @@
+/* ===== DASHBOARD PAGE - MAIN CSS FILE ===== */
+/* This file imports all dashboard component styles */
+
+/* 1. Variables - CSS Variables (colors, spacing, shadows) */
+@import url('./dashboard/variables.css');
+
+/* 2. Base Styles - Background effects, body, scrollbar */
+@import url('./dashboard/base.css');
+
+/* 3. Components - Header, Stats cards, Buttons, Quick Actions */
+@import url('./dashboard/components.css');
+
+/* 4. Tasks - Task list, Task items, Pagination, Empty state */
+@import url('./dashboard/tasks.css');
+
+/* 5. SubTasks - SubTask items, Progress bar, SubTask styles */
+@import url('./dashboard/subtasks.css');
+
+/* 6. Popups - Modal popups, Overlays, Side panel */
+@import url('./dashboard/popups.css');
+
+/* 7. Forms - Form inputs, Checkboxes, Radio buttons, Validation */
+@import url('./dashboard/forms.css');
+

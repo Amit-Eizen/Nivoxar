@@ -1,0 +1,339 @@
+/* ===== SUBTASKS ===== */
+
+/* SubTasks in Task Meta */
+.task-subtasks {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--color-warning);
+    font-weight: 600;
+}
+
+/* Progress Bar in Task Item */
+.subtasks-progress {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.progress-text {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--color-warning);
+    font-weight: 600;
+}
+
+.progress-text i {
+    font-size: 1rem;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background: rgba(15, 23, 42, 0.8);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--color-warning), #fbbf24);
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+
+/* SubTask Item (in popup/panel) */
+.subtask-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.subtask-item:hover {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: var(--border-hover);
+}
+
+.subtask-item.completed {
+    opacity: 0.6;
+}
+
+.subtask-item.completed .subtask-text {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+/* SubTask Checkbox */
+.subtask-checkbox {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.subtask-checkbox input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    width: 0;
+    height: 0;
+}
+
+.subtask-checkbox .checkmark {
+    width: 20px;
+    height: 20px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    transition: all var(--transition-normal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.subtask-checkbox:hover .checkmark {
+    border-color: var(--color-primary);
+}
+
+.subtask-checkbox input:checked ~ .checkmark {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border-color: var(--color-primary);
+}
+
+.subtask-checkbox input:checked ~ .checkmark::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: white;
+    font-size: 0.7rem;
+}
+
+/* SubTask Text */
+.subtask-text {
+    flex: 1;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+/* SubTask Actions - WITH EDIT BUTTON */
+.subtask-actions {
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    flex-shrink: 0;
+}
+
+.subtask-item:hover .subtask-actions {
+    opacity: 1;
+}
+
+.subtask-edit,
+.subtask-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px;
+    transition: all 0.3s ease;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+}
+
+.subtask-edit:hover {
+    color: var(--color-secondary);
+    background: rgba(59, 130, 246, 0.1);
+    transform: scale(1.1);
+}
+
+.subtask-delete:hover {
+    color: var(--color-danger);
+    background: rgba(239, 68, 68, 0.1);
+    transform: scale(1.1);
+}
+
+/* Subtask Edit Input */
+.subtask-edit-input {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 2px solid var(--color-secondary);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+
+.subtask-edit-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* SubTasks List Container */
+.subtasks-list,
+.temp-subtasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.subtasks-empty {
+    text-align: center;
+    padding: 24px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* SubTasks Input */
+.subtask-input-group {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.subtask-input {
+    flex: 1;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    transition: all var(--transition-normal);
+}
+
+.subtask-input::placeholder {
+    color: var(--text-muted);
+}
+
+.subtask-input:focus {
+    outline: none;
+    border-color: var(--color-warning);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+}
+
+.subtask-add-btn {
+    background: linear-gradient(135deg, var(--color-warning), #d97706);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    transition: all var(--transition-normal);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.subtask-add-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+/* SubTasks Progress Summary (in popup) */
+.subtasks-progress-summary {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    margin-top: 16px;
+}
+
+.progress-summary-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    color: var(--color-warning);
+    font-weight: 600;
+}
+
+.progress-percentage {
+    font-size: 1.2rem;
+}
+
+/* SubTasks Header (in popup) */
+.subtasks-header {
+    margin-bottom: 24px;
+}
+
+.subtasks-header h3 {
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.subtasks-info {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+/* Subtasks Summary (in side panel) */
+.subtasks-summary {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    text-align: center;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.subtasks-summary i {
+    color: var(--color-warning);
+}
+
+.summary-text {
+    font-weight: 500;
+}
+
+/* Subtasks Manager (in side panel) */
+.subtasks-manager {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Subtask Save Button */
+.subtask-save-btn {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.subtask-save-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
+}
