@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categories - Nivoxar</title>
+    <link rel="stylesheet" href="../public/styles/navbar.css">
+    <link rel="stylesheet" href="../public/styles/Categories.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navbar Container -->
+    <div id="navbarContainer"></div>
+    <!-- Background Effects -->
+    <div class="categories-bg">
+        <div class="categories-shapes">
+            <div class="cat-shape cat-shape-1"></div>
+            <div class="cat-shape cat-shape-2"></div>
+            <div class="cat-shape cat-shape-3"></div>
+        </div>
+        <div class="categories-grid-overlay"></div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingState" class="categories-loading">
+        <div class="loading-content">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading categories...</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="categories-page" id="mainContent" style="display: none;">
+        <div class="categories-container">
+            <!-- Header -->
+            <header class="categories-header">
+                <div class="header-left">
+                    <h1 class="categories-title">
+                        <i class="fas fa-folder-open"></i>
+                        Categories
+                    </h1>
+                    <p class="categories-subtitle">
+                        Organize your tasks with colorful categories
+                    </p>
+                </div>
+                
+                <div class="header-actions">
+                    <button class="action-btn create-category-btn" id="createCategoryBtn">
+                        <i class="fas fa-plus"></i>
+                        New Category
+                    </button>
+                </div>
+            </header>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="error-message" style="display: none;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <span id="errorText"></span>
+                <button id="closeErrorBtn" class="error-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Categories Content -->
+            <div class="categories-content">
+                <!-- Empty State -->
+                <div id="emptyState" class="empty-state" style="display: none;">
+                    <i class="fas fa-folder-plus"></i>
+                    <h3>No categories yet</h3>
+                    <p>Create your first category to organize your tasks!</p>
+                    <button class="btn-primary" id="emptyStateCreateBtn">
+                        <i class="fas fa-plus"></i>
+                        Create Category
+                    </button>
+                </div>
+
+                <!-- Categories Grid -->
+                <div id="categoriesGrid" class="categories-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Category Modal -->
+    <div id="categoryModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-folder"></i>
+                    <span id="modalTitle">Create New Category</span>
+                </h3>
+                <button class="modal-close" id="closeModalBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="categoryForm" class="category-form">
+                <div class="form-group">
+                    <label>Category Name</label>
+                    <input
+                        type="text"
+                        id="categoryNameInput"
+                        placeholder="Enter category name..."
+                        required
+                    />
+                </div>
+                
+                <div class="form-group">
+                    <label>Color</label>
+                    <div class="color-picker">
+                        <div class="selected-color">
+                            <div class="color-preview" id="colorPreview"></div>
+                            <span id="colorValue">#10b981</span>
+                        </div>
+                        <div class="color-options" id="colorOptions"></div>
+                    </div>
+                </div>
+                
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" id="cancelModalBtn">
+                        Cancel
+                    </button>
+                    <button type="submit" class="btn-primary" id="submitCategoryBtn">
+                        <i class="fas fa-plus"></i>
+                        <span id="submitBtnText">Create Category</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="module" src="../scripts/CategoriesPage.js"></script>
+</body>
+</html>
