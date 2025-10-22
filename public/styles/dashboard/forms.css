@@ -1,0 +1,460 @@
+/* ===== FORMS ===== */
+
+/* Task Form */
+.task-form {
+    padding: 0;
+}
+
+/* Form Group */
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: flex;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.form-label {
+    display: block;
+    color: var(--text-primary);
+    font-weight: 600;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.form-label.required::after {
+    content: ' *';
+    color: var(--color-danger);
+}
+
+/* Form Inputs */
+.form-group input,
+.form-group textarea,
+.form-group select,
+.form-input,
+.form-textarea,
+.form-select {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(51, 65, 85, 0.4);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 14px;
+    transition: var(--transition-normal);
+    backdrop-filter: blur(10px);
+    font-family: inherit;
+}
+
+.form-group input::placeholder,
+.form-group textarea::placeholder,
+.form-input::placeholder,
+.form-textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus,
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    background: rgba(15, 23, 42, 0.9);
+}
+
+.form-group textarea,
+.form-textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+/* Select Dropdown - LTR */
+.form-select,
+.form-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 2.5rem;
+}
+
+.form-select option,
+.form-group select option {
+    background: #1e293b;
+    color: var(--text-primary);
+    padding: 8px;
+}
+
+/* Form Row */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+/* Checkbox - CLEAN & SIMPLE */
+.checkbox-label {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-primary);
+    position: relative;
+    padding: 12px 16px;
+    background: rgba(59, 130, 246, 0.05);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    border-radius: var(--radius-sm);
+    transition: var(--transition-normal);
+}
+
+.checkbox-label:hover {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.25);
+}
+
+.checkbox-label input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    width: 0;
+    height: 0;
+}
+
+.checkbox-custom {
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    min-height: 22px;
+    border: 2px solid #475569;
+    border-radius: 6px;
+    transition: var(--transition-normal);
+    flex-shrink: 0;
+    background: rgba(15, 23, 42, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.checkbox-label:hover .checkbox-custom {
+    border-color: var(--color-primary);
+}
+
+.checkbox-label input[type="checkbox"]:checked ~ .checkbox-custom {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.checkbox-label input[type="checkbox"]:checked ~ .checkbox-custom::after {
+    content: '\f00c';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    color: white;
+    font-size: 0.7rem;
+}
+
+.checkbox-label > span:not(.checkbox-custom) {
+    flex: 1;
+    font-size: 15px;
+}
+
+/* Recurring Options */
+.recurring-options,
+#recurringOptions {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(16, 185, 129, 0.05));
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    margin-top: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.recurring-options::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-secondary), var(--color-primary));
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.recurring-options .form-group label {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.recurring-options .form-group input,
+.recurring-options .form-group select {
+    background: rgba(15, 23, 42, 0.9);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.recurring-options .form-group input:focus,
+.recurring-options .form-group select:focus {
+    border-color: var(--color-secondary);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.recurring-options small {
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 4px;
+    display: block;
+    font-style: italic;
+}
+
+/* Radio Buttons */
+.form-radio-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.form-radio-label {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    transition: var(--transition-normal);
+    color: var(--text-secondary);
+}
+
+.form-radio-label input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.form-radio-label:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-hover);
+}
+
+.form-radio-label:has(input:checked) {
+    background: var(--bg-hover);
+    border-color: var(--color-primary);
+    color: var(--text-primary);
+}
+
+/* Priority Options */
+.priority-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.form-radio-label:has(input[value="4"]:checked),
+.form-radio-label:has(input[value="3"]:checked) {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--color-danger);
+    color: #fca5a5;
+}
+
+.form-radio-label:has(input[value="2"]:checked) {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: var(--color-warning);
+    color: #fcd34d;
+}
+
+.form-radio-label:has(input[value="1"]:checked) {
+    background: rgba(16, 185, 129, 0.2);
+    border-color: var(--color-success);
+    color: #6ee7b7;
+}
+
+/* Date & Time Inputs */
+input[type="date"],
+input[type="time"] {
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(51, 65, 85, 0.4);
+    color: var(--text-primary);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-family: inherit;
+    cursor: pointer;
+    transition: var(--transition-normal);
+}
+
+input[type="date"]:focus,
+input[type="time"]:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.7);
+    cursor: pointer;
+}
+
+/* Form Actions / Modal Actions */
+.form-actions,
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    align-items: center;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 24px;
+}
+
+.modal-actions .btn-secondary,
+.modal-actions .btn-danger,
+.modal-actions .btn-info,
+.modal-actions .btn-primary,
+.form-actions .btn,
+.form-actions button {
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 100px;
+    border: none;
+}
+
+.modal-actions .btn-secondary,
+.btn-secondary {
+    background: rgba(71, 85, 105, 0.8);
+    color: #e2e8f0;
+    border: 1px solid rgba(71, 85, 105, 0.4);
+}
+
+.modal-actions .btn-secondary:hover,
+.btn-secondary:hover {
+    background: rgba(71, 85, 105, 1);
+    border-color: rgba(71, 85, 105, 0.6);
+    transform: translateY(-1px);
+}
+
+.modal-actions .btn-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-danger);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.modal-actions .btn-danger:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--color-danger);
+    transform: translateY(-1px);
+}
+
+.modal-actions .btn-info {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--color-secondary);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.modal-actions .btn-info:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--color-secondary);
+    transform: translateY(-1px);
+}
+
+.modal-actions .btn-primary,
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-dark));
+    color: white;
+    border: 1px solid transparent;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.modal-actions .btn-primary:hover,
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+/* Form Error */
+.form-error {
+    color: var(--color-danger);
+    font-size: 0.85rem;
+    margin-top: 0.3rem;
+    display: none;
+}
+
+.form-group.error .form-error {
+    display: block;
+}
+
+.form-group.error .form-input,
+.form-group.error .form-textarea,
+.form-group.error .form-select {
+    border-color: var(--color-danger);
+}
+
+/* Form Help Text */
+.form-help {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 0.3rem;
+}
+
+/* Disabled State */
+.form-input:disabled,
+.form-textarea:disabled,
+.form-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: rgba(15, 23, 42, 0.6);
+}
+
+/* Optional Label */
+.optional {
+    color: var(--text-secondary);
+    font-weight: 400;
+    font-size: 12px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 600px) {
+    .task-form {
+        padding: 20px;
+    }
+    
+    .modal-actions,
+    .form-actions {
+        gap: 8px;
+        flex-direction: column-reverse;
+    }
+    
+    .modal-actions .btn-secondary,
+    .modal-actions .btn-danger,
+    .modal-actions .btn-info,
+    .modal-actions .btn-primary,
+    .form-actions .btn,
+    .form-actions button {
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}

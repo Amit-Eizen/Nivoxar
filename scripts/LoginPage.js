@@ -1,6 +1,9 @@
-// LoginPage.js - Clean Version
+// LoginPage.js - Enhanced with Authentication & Redirect
 
 document.addEventListener('DOMContentLoaded', function() {
+    
+    // Check if already logged in
+    checkIfLoggedIn();
     
     // Elements
     const headerLoginBtn = document.getElementById('headerLoginBtn');
@@ -111,7 +114,73 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('registerPassword')?.addEventListener('input', updatePasswordStrength);
     
-    // Form submissions
+    // ========== AUTHENTICATION FUNCTIONS ==========
+    
+    // Check if already logged in
+    function checkIfLoggedIn() {
+        const currentUser = localStorage.getItem('nivoxar_current_user');
+        if (currentUser) {
+            console.log('✅ User already logged in, redirecting to dashboard...');
+            window.location.href = '/views/DashboardPage.html';
+        }
+    }
+    
+    // Get users from localStorage
+    function getUsers() {
+        const saved = localStorage.getItem('nivoxar_users');
+        return saved ? JSON.parse(saved) : [];
+    }
+    
+    // Save users to localStorage
+    function saveUsers(users) {
+        localStorage.setItem('nivoxar_users', JSON.stringify(users));
+    }
+    
+    // Login user
+    function loginUser(email, password) {
+        const users = getUsers();
+        const user = users.find(u => u.email === email && u.password === password);
+        
+        if (user) {
+            localStorage.setItem('nivoxar_current_user', JSON.stringify(user));
+            console.log('✅ Login successful:', user.name);
+            return { success: true, user };
+        }
+        
+        return { success: false, error: 'Invalid email or password' };
+    }
+    
+    // Register new user
+    function registerUser(userData) {
+        const users = getUsers();
+        
+        // Check if email already exists
+        if (users.find(u => u.email === userData.email)) {
+            return { success: false, error: 'Email already exists' };
+        }
+        
+        // Create new user
+        const newUser = {
+            id: Date.now(),
+            name: userData.name,
+            email: userData.email,
+            password: userData.password,
+            createdAt: new Date().toISOString()
+        };
+        
+        users.push(newUser);
+        saveUsers(users);
+        
+        // Auto login
+        localStorage.setItem('nivoxar_current_user', JSON.stringify(newUser));
+        console.log('✅ Registration successful:', newUser.name);
+        
+        return { success: true, user: newUser };
+    }
+    
+    // ========== FORM SUBMISSIONS ==========
+    
+    // Login Form
     document.getElementById('loginFormElement')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -119,6 +188,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const password = document.getElementById('loginPassword').value;
         const rememberMe = document.getElementById('rememberMe')?.checked || false;
         
+        // Validation
         if (!email || !password) {
             alert('Please fill in all fields');
             return;
@@ -129,22 +199,35 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // UI feedback
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalHTML = submitBtn.innerHTML;
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span>Signing In...</span>';
         
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            alert('Login successful! (Connect to backend)');
+            // Simulate delay
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Attempt login
+            const result = loginUser(email, password);
+            
+            if (result.success) {
+                // Redirect to dashboard
+                window.location.href = '/views/DashboardPage.html';
+            } else {
+                alert(result.error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHTML;
+            }
         } catch (error) {
             alert('An error occurred. Please try again.');
-        } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalHTML;
         }
     });
     
+    // Register Form
     document.getElementById('registerFormElement')?.addEventListener('submit', async function(e) {
         e.preventDefault();
         
@@ -154,6 +237,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const confirmPassword = document.getElementById('registerPasswordConfirm')?.value;
         const agreeTerms = document.getElementById('agreeTerms')?.checked;
         
+        // Validation
         if (!name || !email || !password || !confirmPassword) {
             alert('Please fill in all fields');
             return;
@@ -190,17 +274,29 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // UI feedback
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalHTML = submitBtn.innerHTML;
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span>Creating Account...</span>';
         
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            alert('Registration successful! (Connect to backend)');
+            // Simulate delay
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Attempt registration
+            const result = registerUser({ name, email, password });
+            
+            if (result.success) {
+                // Redirect to dashboard
+                window.location.href = '/views/DashboardPage.html';
+            } else {
+                alert(result.error);
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalHTML;
+            }
         } catch (error) {
             alert('An error occurred. Please try again.');
-        } finally {
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalHTML;
         }

@@ -6,6 +6,13 @@
     <title>Login - Nivoxar</title>
     <link rel="stylesheet" href="../public/styles/LoginPage.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script type="module">
+    // Check if already logged in
+    const currentUser = localStorage.getItem('nivoxar_current_user');
+    if (currentUser) {
+        window.location.href = '/views/DashboardPage.html';
+    }
+</script>
 </head>
 <body>
     <!-- Auth Page Wrapper -->
@@ -305,6 +312,6 @@
         </div>
     </div>
 
-    <script src="../scripts/LoginPage.js"></script>
+    <script type="module" src="../scripts/LoginPage.js"></script>
 </body>
 </html>

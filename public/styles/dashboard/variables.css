@@ -1,0 +1,60 @@
+/* ===== CSS VARIABLES ===== */
+
+:root {
+    /* Colors - Primary */
+    --color-primary: #10b981;
+    --color-primary-dark: #059669;
+    --color-primary-light: #34d399;
+    
+    /* Colors - Secondary */
+    --color-secondary: #3b82f6;
+    --color-warning: #f59e0b;
+    --color-danger: #ef4444;
+    --color-success: #10b981;
+    
+    /* Colors - Background */
+    --bg-primary: linear-gradient(135deg, #0a0f1a 0%, #1a2332 50%, #0d1821 100%);
+    --bg-secondary: rgba(30, 41, 59, 0.8);
+    --bg-card: rgba(30, 41, 59, 0.8);
+    --bg-hover: rgba(59, 130, 246, 0.1);
+    
+    /* Colors - Text */
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    
+    /* Colors - Border */
+    --border-color: rgba(16, 185, 129, 0.2);
+    --border-hover: rgba(16, 185, 129, 0.3);
+    
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --spacing-xl: 3rem;
+    
+    /* Border Radius */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --radius-xl: 20px;
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.5s ease;
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 80px rgba(16, 185, 129, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --shadow-lg: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 100px rgba(16, 185, 129, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    --shadow-glow: 0 0 20px rgba(16, 185, 129, 0.6);
+    
+    /* Z-index */
+    --z-background: -1;
+    --z-base: 1;
+    --z-popup: 1000;
+    --z-overlay: 999;
+    --z-side-panel: 1001;
+}
