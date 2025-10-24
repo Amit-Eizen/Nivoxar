@@ -1,5 +1,3 @@
-/* ===== SUBTASKS ===== */
-
 /* SubTasks in Task Meta */
 .task-subtasks {
     background: rgba(245, 158, 11, 0.2);
@@ -56,6 +54,7 @@
     border-radius: var(--radius-sm);
     transition: all var(--transition-normal);
     position: relative;
+    z-index: 1;
 }
 
 .subtask-item:hover {
@@ -131,9 +130,11 @@
 .subtask-actions {
     display: flex;
     gap: 6px;
-    opacity: 0;
+    opacity: 1;
     transition: opacity 0.3s ease;
     flex-shrink: 0;
+    position: relative;
+    z-index: 10;
 }
 
 .subtask-item:hover .subtask-actions {
@@ -153,6 +154,8 @@
     align-items: center;
     justify-content: center;
     width: 28px;
+    position: relative;
+    z-index: 20;
     height: 28px;
 }
 
@@ -207,6 +210,8 @@
     display: flex;
     gap: 12px;
     margin-bottom: 16px;
+    position: relative;
+    z-index: 5;
 }
 
 .subtask-input {
@@ -242,6 +247,8 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    position: relative;
+    z-index: 10;
 }
 
 .subtask-add-btn:hover {

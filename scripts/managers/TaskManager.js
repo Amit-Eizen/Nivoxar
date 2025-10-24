@@ -1,5 +1,6 @@
 import { dashboardState, updateDashboard } from '../DashboardPage.js';
 import { createTaskElement, isTaskOverdue, calculateAnalytics } from '../../utils/TaskUtils.js';
+import { incrementTaskCount, decrementTaskCount } from '../../services/CategoryService.js';
 
 // Initialize Task Manager
 export function initTaskManager() {
@@ -53,6 +54,11 @@ export function createTask(taskData) {
     dashboardState.filteredTasks = [...dashboardState.tasks];
     saveTasksToLocalStorage();
     
+    // Update category task count
+    if (newTask.category) {
+        incrementTaskCount(newTask.category);
+    }
+    
     console.log('✅ Task created:', newTask);
     return newTask;
 }
@@ -62,14 +68,24 @@ export function updateTask(taskId, updates) {
     const taskIndex = dashboardState.tasks.findIndex(t => t.id === taskId);
     if (taskIndex === -1) return;
     
+    const oldTask = dashboardState.tasks[taskIndex];
+    const oldCategory = oldTask.category;
+    const newCategory = updates.category;
+    
     dashboardState.tasks[taskIndex] = {
-        ...dashboardState.tasks[taskIndex],
+        ...oldTask,
         ...updates,
         updatedAt: new Date().toISOString()
     };
     
     dashboardState.filteredTasks = [...dashboardState.tasks];
     saveTasksToLocalStorage();
+    
+    // Update category task counts if category changed
+    if (oldCategory !== newCategory) {
+        if (oldCategory) decrementTaskCount(oldCategory);
+        if (newCategory) incrementTaskCount(newCategory);
+    }
     
     console.log('✅ Task updated:', taskId);
 }
@@ -79,9 +95,17 @@ export function deleteTask(taskId) {
     const taskIndex = dashboardState.tasks.findIndex(t => t.id === taskId);
     if (taskIndex === -1) return;
     
+    const task = dashboardState.tasks[taskIndex];
+    const categoryId = task.category;
+    
     dashboardState.tasks.splice(taskIndex, 1);
     dashboardState.filteredTasks = [...dashboardState.tasks];
     saveTasksToLocalStorage();
+    
+    // Update category task count
+    if (categoryId) {
+        decrementTaskCount(categoryId);
+    }
     
     console.log('✅ Task deleted:', taskId);
 }
@@ -190,4 +214,3 @@ export function updateStats() {
 export function getTaskById(taskId) {
     return dashboardState.tasks.find(t => t.id === taskId);
 }
-

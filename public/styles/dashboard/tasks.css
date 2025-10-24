@@ -1,5 +1,3 @@
-/* ===== TASKS ===== */
-
 /* Tasks Section */
 .tasks-section {
     background: rgba(30, 41, 59, 0.6);
@@ -340,6 +338,8 @@
     align-items: flex-start;
     opacity: 0.8;
     transition: opacity 0.3s ease;
+    position: relative;
+    z-index: 10;
 }
 
 .task-card:hover .task-actions,
@@ -364,46 +364,57 @@
     border: 1px solid rgba(51, 65, 85, 0.4);
     color: #94a3b8;
     justify-content: center;
+    position: relative;
+    z-index: 10;
 }
 
 .task-action-btn:hover {
     transform: scale(1.05);
+    z-index: 20;
 }
 
+/* Subtasks Button */
 .task-actions .action-btn.subtasks-btn,
-.task-action-btn.subtasks-btn {
+.task-action-btn.subtasks-btn,
+.task-action-btn.task-subtasks-btn {
     background: rgba(245, 158, 11, 0.1);
     color: #f59e0b;
     border: 1px solid rgba(245, 158, 11, 0.2);
-    position: relative;
 }
 
 .task-actions .action-btn.subtasks-btn:hover,
-.task-action-btn.subtasks-btn:hover {
+.task-action-btn.subtasks-btn:hover,
+.task-action-btn.task-subtasks-btn:hover {
     background: rgba(245, 158, 11, 0.2);
 }
 
+/* Edit Button */
 .task-actions .action-btn.edit-btn,
-.task-action-btn.edit-btn {
+.task-action-btn.edit-btn,
+.task-action-btn.task-edit {
     background: rgba(59, 130, 246, 0.1);
     color: #3b82f6;
     border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 .task-actions .action-btn.edit-btn:hover,
-.task-action-btn.edit-btn:hover {
+.task-action-btn.edit-btn:hover,
+.task-action-btn.task-edit:hover {
     background: rgba(59, 130, 246, 0.2);
 }
 
+/* Delete Button */
 .task-actions .action-btn.delete-btn,
-.task-action-btn.delete-btn {
+.task-action-btn.delete-btn,
+.task-action-btn.task-delete {
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
 .task-actions .action-btn.delete-btn:hover,
-.task-action-btn.delete-btn:hover {
+.task-action-btn.delete-btn:hover,
+.task-action-btn.task-delete:hover {
     background: rgba(239, 68, 68, 0.2);
 }
 
