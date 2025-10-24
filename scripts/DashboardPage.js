@@ -24,6 +24,15 @@ function initializeDashboard() {
     checkAuth();
     initNavbar();
     
+    // Read category filter from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const categoryFilter = urlParams.get('categoryFilter');
+    
+    if (categoryFilter) {
+        console.log('📌 Category filter detected:', categoryFilter);
+        dashboardState.currentCategory = categoryFilter;
+    }
+    
     hideInitialElements();
     showLoading();
     
@@ -36,6 +45,12 @@ function initializeDashboard() {
         initializePopups();
         hideLoading();
         updateDashboard();
+        
+        // Show filter notification if category is filtered
+        if (categoryFilter) {
+            showCategoryFilterNotification(categoryFilter);
+        }
+        
         console.log('✅ Dashboard initialized!');
     }, 500);
 }
@@ -83,6 +98,33 @@ function updateDashboardSubtitle() {
     const message = messages[Math.floor(Math.random() * messages.length)];
     
     subtitle.innerHTML = `${greeting}, <strong>${dashboardState.user.name}</strong>! <span class="status-indicator">${message}</span>`;
+}
+
+function showCategoryFilterNotification(categoryId) {
+    // Import getCategoryName from TaskUtils
+    import('./utils/TaskUtils.js').then(module => {
+        const categoryName = module.getCategoryName(categoryId);
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'category-filter-notification';
+        notification.innerHTML = `
+            <div class="filter-message">
+                <i class="fas fa-filter"></i>
+                <span>Showing tasks from: <strong>${categoryName}</strong></span>
+            </div>
+            <button class="clear-filter-btn" onclick="window.location.href='/views/DashboardPage.html'">
+                <i class="fas fa-times"></i> Clear Filter
+            </button>
+        `;
+        
+        // Insert notification at the top of the dashboard
+        const container = document.querySelector('.dashboard-container');
+        const header = document.querySelector('.dashboard-header');
+        if (container && header) {
+            container.insertBefore(notification, header.nextSibling);
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', initializeDashboard);

@@ -1,4 +1,5 @@
 // TaskUtils.js - Utility functions for task management
+import { getAllCategoriesSync } from '../../services/CategoryService.js';
 
 // Priority configuration (merged into one object)
 export const PRIORITIES = {
@@ -88,50 +89,38 @@ export function calculateAnalytics(tasks) {
     const recurringTasks = tasks.filter(t => t.recurring?.enabled);
     const activeRecurring = recurringTasks.filter(t => !t.completed).length;
     
-    return {
-        total,
-        completed,
-        pending,
-        completionRate,
-        totalSubTasks,
-        completedSubTasks,
-        recurringTasks: recurringTasks.length,
-        activeRecurring
+    return { total, completed, pending, completionRate, totalSubTasks,
+        completedSubTasks, recurringTasks: recurringTasks.length, activeRecurring
     };
 }
 
-// Get category color
+// Get category color from CategoryService
 export function getCategoryColor(category) {
-    const categoryColors = {
-        'work': '#3b82f6',      // כחול
-        'personal': '#8b5cf6',  // סגול
-        'urgent': '#ef4444',    // אדום
-        'health': '#10b981',    // ירוק
-        'finance': '#f59e0b',   // כתום
-        'family': '#ec4899',    // ורוד
-        'shopping': '#14b8a6',  // טורקיז
-        'study': '#6366f1'      // אינדיגו
-    };
-    
-    const customColors = getCustomCategoryColors();
-    const mergedColors = { ...categoryColors, ...customColors };
-    
-    return mergedColors[category?.toLowerCase()] || '#6366f1';
-}
-
-function getCustomCategoryColors() {
-    const saved = localStorage.getItem('nivoxar_category_colors');
-    if (saved) {
-        try {
-            return JSON.parse(saved);
-        } catch (error) {
-            console.error('Failed to parse category colors');
-        }
+    if (!category) {
+        console.log('⚠️ No category provided, using default color');
+        return '#6366f1'; // Default color
     }
-    return {};
+    
+    // Get categories from CategoryService
+    const categories = getAllCategoriesSync();
+    
+    console.log(`🎨 Getting color for category: "${category}"`);
+    console.log('  Available categories:', categories.map(c => `${c.id}:${c.name}`));
+    
+    // Find category by ID or name (case-insensitive)
+    const found = categories.find(cat => 
+        cat.id === category || 
+        cat.name.toLowerCase() === category.toLowerCase()
+    );
+    
+    if (found) {
+        console.log(`  ✅ Found: ${found.name} → ${found.color}`);
+        return found.color;
+    } else {
+        console.log(`  ❌ Not found! Using default color`);
+        return '#6366f1'; // Fallback to default
+    }
 }
-
-// ========== CREATE TASK ELEMENT - REFACTORED ==========
 
 // Create checkbox element
 function createTaskCheckbox(task) {
@@ -148,9 +137,14 @@ function createTaskCheckbox(task) {
 function createTaskHeader(task) {
     const header = document.createElement('div');
     header.className = 'task-header';
+    
+    // Get category name and color
+    const categoryName = task.category ? getCategoryName(task.category) : '';
+    const categoryColor = task.category ? getCategoryColor(task.category) : '';
+    
     header.innerHTML = `
         <h3 class="task-title">${task.title}</h3>
-        ${task.category ? `<span class="task-category">${task.category}</span>` : ''}
+        ${categoryName ? `<span class="task-category" style="background-color: ${categoryColor}; color: white;">${categoryName}</span>` : ''}
     `;
     return header;
 }
@@ -223,7 +217,7 @@ function createTaskActions(task) {
     if (task.subTasks?.length > 0) {
         const completedCount = task.subTasks.filter(st => st.completed).length;
         const subtasksBtn = document.createElement('button');
-        subtasksBtn.className = 'task-action-btn subtasks-btn';
+        subtasksBtn.className = 'task-action-btn task-subtasks-btn';
         subtasksBtn.title = 'Manage SubTasks';
         subtasksBtn.innerHTML = `
             <i class="fas fa-list-check"></i>
@@ -234,14 +228,14 @@ function createTaskActions(task) {
     
     // Edit button
     const editBtn = document.createElement('button');
-    editBtn.className = 'task-action-btn edit-btn';
+    editBtn.className = 'task-action-btn task-edit';
     editBtn.title = 'Edit';
     editBtn.innerHTML = '<i class="fas fa-edit"></i>';
     actions.appendChild(editBtn);
     
     // Delete button
     const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'task-action-btn delete-btn';
+    deleteBtn.className = 'task-action-btn task-delete';
     deleteBtn.title = 'Delete';
     deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
     actions.appendChild(deleteBtn);
@@ -327,4 +321,24 @@ export function getUniqueCategories(tasks) {
         if (task.category) categories.add(task.category);
     });
     return Array.from(categories).sort();
+}
+
+// Get all available categories from CategoryService
+export function getAllAvailableCategories() {
+    const categories = getAllCategoriesSync();
+    return categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        color: cat.color
+    }));
+}
+
+// Get category name by ID (useful for display)
+export function getCategoryName(categoryId) {
+    if (!categoryId) return '';
+    
+    const categories = getAllCategoriesSync();
+    const found = categories.find(cat => cat.id === categoryId);
+    
+    return found?.name || categoryId;
 }

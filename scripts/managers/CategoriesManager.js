@@ -1,128 +1,104 @@
 // Manages all category operations: CRUD, localStorage, rendering
 
+import { getAllCategoriesSync,
+    createCategory as createCategoryService,
+    updateCategory as updateCategoryService,
+    deleteCategory as deleteCategoryService,
+    getCategoryById as getCategoryByIdService,
+    CATEGORY_COLORS
+} from '../../services/CategoryService.js';
+
 // ===== AVAILABLE COLORS =====
-export const AVAILABLE_COLORS = [
-    '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444',
-    '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1',
-    '#14b8a6', '#eab308', '#dc2626', '#7c3aed', '#059669'
-];
+export const AVAILABLE_COLORS = CATEGORY_COLORS;
 
-// ===== STORAGE KEYS =====
-const STORAGE_KEY = 'nivoxar_categories';
-
-// ===== GET CATEGORIES FROM LOCALSTORAGE =====
+// ===== GET CATEGORIES =====
 export function getCategories() {
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        return stored ? JSON.parse(stored) : getDefaultCategories();
-    } catch (error) {
-        console.error('Error loading categories:', error);
-        return getDefaultCategories();
-    }
-}
-
-// ===== DEFAULT CATEGORIES =====
-function getDefaultCategories() {
-    return [
-        {
-            id: 'work',
-            name: 'Work',
-            color: '#3b82f6',
-            taskCount: 0,
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'personal',
-            name: 'Personal',
-            color: '#8b5cf6',
-            taskCount: 0,
-            createdAt: new Date().toISOString()
-        },
-        {
-            id: 'urgent',
-            name: 'Urgent',
-            color: '#ef4444',
-            taskCount: 0,
-            createdAt: new Date().toISOString()
-        }
-    ];
-}
-
-// ===== SAVE CATEGORIES TO LOCALSTORAGE =====
-export function saveCategories(categories) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(categories));
-        return true;
-    } catch (error) {
-        console.error('Error saving categories:', error);
-        return false;
-    }
+    return getAllCategoriesSync();
 }
 
 // ===== CREATE NEW CATEGORY =====
-export function createCategory(categoryData) {
-    const categories = getCategories();
-    
-    // Generate unique ID
-    const newId = `cat_${Date.now()}`;
-    
-    const newCategory = {
-        id: newId,
-        name: categoryData.name.trim(),
-        color: categoryData.color,
-        taskCount: 0,
-        createdAt: new Date().toISOString()
-    };
-    
-    categories.push(newCategory);
-    saveCategories(categories);
-    
+export async function createCategory(categoryData) {
+    const newCategory = await createCategoryService(categoryData);
     console.log('✅ Category created:', newCategory);
     return newCategory;
 }
 
 // ===== UPDATE CATEGORY =====
-export function updateCategory(categoryId, updatedData) {
-    const categories = getCategories();
-    const index = categories.findIndex(cat => cat.id === categoryId);
+export async function updateCategory(categoryId, updatedData) {
+    const updated = await updateCategoryService(categoryId, updatedData);
     
-    if (index === -1) {
+    if (!updated) {
         console.error('Category not found:', categoryId);
         return null;
     }
     
-    categories[index] = {
-        ...categories[index],
-        name: updatedData.name.trim(),
-        color: updatedData.color
-    };
-    
-    saveCategories(categories);
-    
-    console.log('✅ Category updated:', categories[index]);
-    return categories[index];
+    console.log('✅ Category updated:', updated);
+    return updated;
 }
 
 // ===== DELETE CATEGORY =====
-export function deleteCategory(categoryId) {
-    const categories = getCategories();
-    const filtered = categories.filter(cat => cat.id !== categoryId);
+export async function deleteCategory(categoryId) {
+    const success = await deleteCategoryService(categoryId);
     
-    if (filtered.length === categories.length) {
+    if (!success) {
         console.error('Category not found:', categoryId);
         return false;
     }
-    
-    saveCategories(filtered);
     
     console.log('✅ Category deleted:', categoryId);
     return true;
 }
 
 // ===== GET CATEGORY BY ID =====
-export function getCategoryById(categoryId) {
-    const categories = getCategories();
-    return categories.find(cat => cat.id === categoryId) || null;
+export async function getCategoryById(categoryId) {
+    return await getCategoryByIdService(categoryId);
+}
+
+// ===== CENTRALIZED CATEGORY OPTIONS HTML GENERATOR =====
+/**
+ * Generate HTML options for category dropdown
+ * @param {string|null} selectedValue - The category ID to pre-select
+ * @param {boolean} includeEmpty - Whether to include "Select category..." option
+ * @returns {string} HTML string of <option> elements
+ */
+export function getCategoryOptionsHTML(selectedValue = null, includeEmpty = true) {
+    const categories = getAllCategoriesSync();
+    
+    let optionsHTML = '';
+    
+    // Add empty option if requested
+    if (includeEmpty) {
+        optionsHTML += '<option value="">Select category...</option>';
+    }
+    
+    // Add category options
+    categories.forEach(cat => {
+        const isSelected = selectedValue && cat.id === selectedValue ? 'selected' : '';
+        optionsHTML += `<option value="${cat.id}" ${isSelected}>${cat.name}</option>`;
+    });
+    
+    return optionsHTML;
+}
+
+// ===== REFRESH CATEGORY DROPDOWN =====
+/**
+ * Refresh a category select element with current categories
+ * @param {HTMLSelectElement} selectElement - The select element to refresh
+ * @param {string|null} valueToSelect - Optional value to select after refresh
+ */
+export function refreshCategorySelect(selectElement, valueToSelect = null) {
+    if (!selectElement) {
+        console.error('❌ Select element not provided');
+        return;
+    }
+    
+    const currentValue = valueToSelect !== null ? valueToSelect : selectElement.value;
+    selectElement.innerHTML = getCategoryOptionsHTML(currentValue, true);
+    
+    // Restore value if it exists
+    if (currentValue && selectElement.querySelector(`option[value="${currentValue}"]`)) {
+        selectElement.value = currentValue;
+    }
 }
 
 // ===== RENDER SINGLE CATEGORY CARD =====

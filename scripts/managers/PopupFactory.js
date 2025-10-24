@@ -1,6 +1,6 @@
-// PopupFactory.js - Grid Layout
 import { dashboardState } from '../DashboardPage.js';
 import { renderTempSubTasks } from './SubTasksManager.js';
+import { getCategoryOptionsHTML, refreshCategorySelect } from './CategoriesManager.js';
 
 // Create Task Popup - WITH GRID LAYOUT
 export function createTaskPopup() {
@@ -40,14 +40,7 @@ export function createTaskPopup() {
                     <div class="form-row">
                         <div class="form-group">
                             <label for="taskCategory">Category</label>
-                            <select id="taskCategory" class="form-select">
-                                <option value="">Select category...</option>
-                                <option value="work">Work</option>
-                                <option value="personal">Personal</option>
-                                <option value="urgent">Urgent</option>
-                                <option value="__new__">+ Create New Category</option>
-                            </select>
-                            <input type="text" id="newCategoryInput" class="form-input" placeholder="New category name" style="display: none; margin-top: 8px;">
+                            <select id="taskCategory" class="form-select"> </select>
                         </div>
                         
                         <div class="form-group">
@@ -186,11 +179,13 @@ export function createSubTasksPopup() {
         
         <div class="popup-body">
             <div class="subtasks-header">
-                <h3 id="parentTaskTitle">Task Title</h3>
-                <p class="subtasks-info">
-                    <span id="subtasksCount">0</span> subtasks
-                    (<span id="subtasksCompleted">0</span> completed)
-                </p>
+                <div class="parent-task-info">
+                    <strong>Task:</strong>
+                    <span id="parentTaskTitle"></span>
+                </div>
+                <div class="subtasks-count">
+                    <span id="subtasksCompleted">0</span> / <span id="subtasksCount">0</span> completed
+                </div>
             </div>
             
             <div class="subtask-input-group">
@@ -237,8 +232,9 @@ export function openTaskPopup(mode = 'create', task = null) {
     const title = document.getElementById('popupTitle');
     const submitBtn = document.getElementById('submitTaskBtn');
     const form = document.getElementById('taskForm');
+    const categorySelect = document.getElementById('taskCategory');
     
-    if (!popup || !title || !submitBtn || !form) {
+    if (!popup || !title || !submitBtn || !form || !categorySelect) {
         console.error('❌ Popup elements not found!');
         return;
     }
@@ -253,15 +249,23 @@ export function openTaskPopup(mode = 'create', task = null) {
         document.getElementById('taskHasSubTasks').checked = false;
         dashboardState.tempSubTasks = [];
         closeSubTasksSidePanel();
+        
+        // Refresh categories dropdown for create mode using centralized function
+        refreshCategorySelect(categorySelect);
+        
     } else if (mode === 'edit' && task) {
         title.innerHTML = '<i class="fas fa-edit"></i> Edit Task';
         submitBtn.innerHTML = '<i class="fas fa-save"></i> Update Task';
         popup.dataset.editMode = 'true';
         popup.dataset.taskId = task.id;
         
+        // Refresh dropdown and set the task's category using centralized function
+        refreshCategorySelect(categorySelect, task.category);
+        
+        // Then set other form values
         document.getElementById('taskTitle').value = task.title;
         document.getElementById('taskDescription').value = task.description || '';
-        document.getElementById('taskCategory').value = task.category || '';
+        // Category already set by refreshCategorySelect
         document.getElementById('taskPriority').value = task.priority;
         document.getElementById('taskDueDate').value = task.dueDate || '';
         document.getElementById('taskDueTime').value = task.dueTime || '';
@@ -272,6 +276,10 @@ export function openTaskPopup(mode = 'create', task = null) {
             openSubTasksSidePanel();
             const container = document.getElementById('tempSubTasksList');
             if (container) renderTempSubTasks(container);
+        } else {
+            document.getElementById('taskHasSubTasks').checked = false;
+            dashboardState.tempSubTasks = [];
+            closeSubTasksSidePanel();
         }
         
         if (task.recurring?.enabled) {
@@ -279,6 +287,9 @@ export function openTaskPopup(mode = 'create', task = null) {
             document.getElementById('recurringOptions').style.display = 'block';
             document.getElementById('recurringFrequency').value = task.recurring.frequency;
             document.getElementById('recurringEndDate').value = task.recurring.endDate || '';
+        } else {
+            document.getElementById('taskRecurring').checked = false;
+            document.getElementById('recurringOptions').style.display = 'none';
         }
     }
     
