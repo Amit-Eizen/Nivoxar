@@ -38,6 +38,12 @@ export function createNavbar() {
                         </a>
                     </li>
                     <li>
+                        <a href="/views/CalendarPage.html" class="${currentPage === 'CalendarPage.html' ? 'active' : ''}">
+                            <i class="fas fa-calendar-alt"></i>
+                            <span>Calendar</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="/views/AnalyticsPage.html" class="${currentPage === 'AnalyticsPage.html' ? 'active' : ''}">
                             <i class="fas fa-chart-line"></i>
                             <span>Analytics</span>
