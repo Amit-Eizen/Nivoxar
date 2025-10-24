@@ -282,16 +282,6 @@ export function createTaskElement(task) {
     return taskEl;
 }
 
-// Filter tasks based on criteria
-export function getFilteredTasks(tasks, filters = {}) {
-    return tasks.filter(task => {
-        if (filters.category && task.category !== filters.category) return false;
-        if (filters.status === 'completed' && !task.completed) return false;
-        if (filters.status === 'pending' && task.completed) return false;
-        if (filters.priority && task.priority !== filters.priority) return false;
-        return true;
-    });
-}
 
 // Sort tasks
 export function sortTasks(tasks, sortBy = 'date') {
