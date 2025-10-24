@@ -458,3 +458,53 @@ export async function recalculateTaskCounts(tasks) {
 
 // Log current mode on load
 console.log(`📦 CategoryService loaded in ${CONFIG.useAPI ? 'API' : 'localStorage'} mode`);
+// ===== CATEGORY OPTIONS HTML GENERATION =====
+
+/**
+ * Generate HTML <option> elements for category select dropdown
+ * @param {string} selectedId - ID of selected category (optional)
+ * @param {boolean} includeEmpty - Include "Select Category" option (default: true)
+ * @returns {string} HTML string of options
+ */
+export function getCategoryOptionsHTML(selectedId = null, includeEmpty = true) {
+    const categories = getAllCategoriesSync();
+    
+    console.log('📋 Generating category options HTML...');
+    console.log('  Total categories:', categories.length);
+    console.log('  Selected ID:', selectedId);
+    console.log('  Include empty:', includeEmpty);
+    
+    let html = '';
+    
+    // Add empty option if requested
+    if (includeEmpty) {
+        const emptySelected = !selectedId ? 'selected' : '';
+        html += `<option value="" ${emptySelected}>Select Category</option>`;
+    }
+    
+    // Add category options
+    categories.forEach(cat => {
+        const selected = cat.id === selectedId ? 'selected' : '';
+        html += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
+        console.log(`  ✅ Added: ${cat.name} (${cat.id}) ${selected ? '← SELECTED' : ''}`);
+    });
+    
+    console.log('  ✅ Generated', categories.length, 'category options');
+    return html;
+}
+
+/**
+ * Populate a select element with category options (helper function)
+ * @param {HTMLSelectElement} selectElement - Select element to populate
+ * @param {string} selectedId - ID of selected category (optional)
+ * @param {boolean} includeEmpty - Include empty option (default: true)
+ */
+export function populateCategorySelect(selectElement, selectedId = null, includeEmpty = true) {
+    if (!selectElement) {
+        console.error('Cannot populate category select: element not found');
+        return;
+    }
+    
+    selectElement.innerHTML = getCategoryOptionsHTML(selectedId, includeEmpty);
+    console.log('✅ Populated category select with', selectElement.options.length, 'options');
+}

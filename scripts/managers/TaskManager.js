@@ -1,6 +1,7 @@
 import { dashboardState, updateDashboard } from '../DashboardPage.js';
 import { createTaskElement, isTaskOverdue, calculateAnalytics } from '../../utils/TaskUtils.js';
 import { incrementTaskCount, decrementTaskCount } from '../../services/CategoryService.js';
+import { filterByCategory } from '../../services/FilterService.js';
 
 // Initialize Task Manager
 export function initTaskManager() {
@@ -128,17 +129,11 @@ export function renderTasks() {
     const emptyState = document.getElementById('emptyState');
     const paginationControls = document.getElementById('paginationControls');
     
-    // Filter tasks by category
-    let tasksToShow = dashboardState.filteredTasks;
-    
-    if (dashboardState.currentCategory !== 'all') {
-        tasksToShow = tasksToShow.filter(task => {
-            if (dashboardState.currentCategory === 'urgent') {
-                return task.priority >= 3 || isTaskOverdue(task);
-            }
-            return task.category?.toLowerCase() === dashboardState.currentCategory;
-        });
-    }
+    // Use FilterService for filtering by category
+    let tasksToShow = filterByCategory(
+        dashboardState.filteredTasks, 
+        dashboardState.currentCategory
+    );
     
     // Calculate pagination
     const totalTasks = tasksToShow.length;

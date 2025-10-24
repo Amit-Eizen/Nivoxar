@@ -1,6 +1,7 @@
 import { dashboardState } from '../DashboardPage.js';
 import { renderTempSubTasks } from './SubTasksManager.js';
-import { getCategoryOptionsHTML, refreshCategorySelect } from './CategoriesManager.js';
+import { getCategoryOptionsHTML } from '../../services/CategoryService.js';
+
 
 // Create Task Popup - WITH GRID LAYOUT
 export function createTaskPopup() {
@@ -179,13 +180,11 @@ export function createSubTasksPopup() {
         
         <div class="popup-body">
             <div class="subtasks-header">
-                <div class="parent-task-info">
-                    <strong>Task:</strong>
-                    <span id="parentTaskTitle"></span>
-                </div>
-                <div class="subtasks-count">
-                    <span id="subtasksCompleted">0</span> / <span id="subtasksCount">0</span> completed
-                </div>
+                <h3 id="parentTaskTitle">Task Title</h3>
+                <p class="subtasks-info">
+                    <span id="subtasksCount">0</span> subtasks
+                    (<span id="subtasksCompleted">0</span> completed)
+                </p>
             </div>
             
             <div class="subtask-input-group">
@@ -226,15 +225,42 @@ export function initializePopups() {
     console.log('✅ Popups initialized');
 }
 
+// Helper function to refresh category options in dropdown
+function refreshCategoryDropdown(valueToSet = null) {
+    const categorySelect = document.getElementById('taskCategory');
+    if (!categorySelect) {
+        console.error('❌ Category select element not found!');
+        return;
+    }
+    
+    console.log('🔄 Refreshing category dropdown...');
+    console.log('  Current value:', categorySelect.value);
+    console.log('  Value to set:', valueToSet);
+    
+    const currentValue = valueToSet !== null ? valueToSet : categorySelect.value;
+    categorySelect.innerHTML = getCategoryOptionsHTML(null, false); // No empty option for task creation
+    
+    console.log('  New options count:', categorySelect.options.length);
+    
+    // Restore/set the value if it exists
+    if (currentValue && categorySelect.querySelector(`option[value="${currentValue}"]`)) {
+        categorySelect.value = currentValue;
+        console.log('  ✅ Set value to:', currentValue);
+    } else {
+        console.log('  ℹ️ Value not found or empty');
+    }
+    
+    console.log('✅ Category dropdown refreshed successfully');
+}
+
 // Open Task Popup
 export function openTaskPopup(mode = 'create', task = null) {
     const popup = document.getElementById('taskPopup');
     const title = document.getElementById('popupTitle');
     const submitBtn = document.getElementById('submitTaskBtn');
     const form = document.getElementById('taskForm');
-    const categorySelect = document.getElementById('taskCategory');
     
-    if (!popup || !title || !submitBtn || !form || !categorySelect) {
+    if (!popup || !title || !submitBtn || !form) {
         console.error('❌ Popup elements not found!');
         return;
     }
@@ -250,8 +276,8 @@ export function openTaskPopup(mode = 'create', task = null) {
         dashboardState.tempSubTasks = [];
         closeSubTasksSidePanel();
         
-        // Refresh categories dropdown for create mode using centralized function
-        refreshCategorySelect(categorySelect);
+        // Refresh categories dropdown for create mode
+        refreshCategoryDropdown();
         
     } else if (mode === 'edit' && task) {
         title.innerHTML = '<i class="fas fa-edit"></i> Edit Task';
@@ -259,13 +285,13 @@ export function openTaskPopup(mode = 'create', task = null) {
         popup.dataset.editMode = 'true';
         popup.dataset.taskId = task.id;
         
-        // Refresh dropdown and set the task's category using centralized function
-        refreshCategorySelect(categorySelect, task.category);
+        // Refresh dropdown and set the task's category
+        refreshCategoryDropdown(task.category);
         
         // Then set other form values
         document.getElementById('taskTitle').value = task.title;
         document.getElementById('taskDescription').value = task.description || '';
-        // Category already set by refreshCategorySelect
+        // Category already set by refreshCategoryDropdown
         document.getElementById('taskPriority').value = task.priority;
         document.getElementById('taskDueDate').value = task.dueDate || '';
         document.getElementById('taskDueTime').value = task.dueTime || '';
