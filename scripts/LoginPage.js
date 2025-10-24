@@ -1,4 +1,5 @@
 // LoginPage.js - Enhanced with Authentication & Redirect
+import { checkIfLoggedIn, login, register } from '../services/AuthService.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     
@@ -114,70 +115,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     document.getElementById('registerPassword')?.addEventListener('input', updatePasswordStrength);
     
-    // ========== AUTHENTICATION FUNCTIONS ==========
-    
-    // Check if already logged in
-    function checkIfLoggedIn() {
-        const currentUser = localStorage.getItem('nivoxar_current_user');
-        if (currentUser) {
-            console.log('✅ User already logged in, redirecting to dashboard...');
-            window.location.href = '/views/DashboardPage.html';
-        }
-    }
-    
-    // Get users from localStorage
-    function getUsers() {
-        const saved = localStorage.getItem('nivoxar_users');
-        return saved ? JSON.parse(saved) : [];
-    }
-    
-    // Save users to localStorage
-    function saveUsers(users) {
-        localStorage.setItem('nivoxar_users', JSON.stringify(users));
-    }
-    
-    // Login user
-    function loginUser(email, password) {
-        const users = getUsers();
-        const user = users.find(u => u.email === email && u.password === password);
-        
-        if (user) {
-            localStorage.setItem('nivoxar_current_user', JSON.stringify(user));
-            console.log('✅ Login successful:', user.name);
-            return { success: true, user };
-        }
-        
-        return { success: false, error: 'Invalid email or password' };
-    }
-    
-    // Register new user
-    function registerUser(userData) {
-        const users = getUsers();
-        
-        // Check if email already exists
-        if (users.find(u => u.email === userData.email)) {
-            return { success: false, error: 'Email already exists' };
-        }
-        
-        // Create new user
-        const newUser = {
-            id: Date.now(),
-            name: userData.name,
-            email: userData.email,
-            password: userData.password,
-            createdAt: new Date().toISOString()
-        };
-        
-        users.push(newUser);
-        saveUsers(users);
-        
-        // Auto login
-        localStorage.setItem('nivoxar_current_user', JSON.stringify(newUser));
-        console.log('✅ Registration successful:', newUser.name);
-        
-        return { success: true, user: newUser };
-    }
-    
     // ========== FORM SUBMISSIONS ==========
     
     // Login Form
@@ -209,8 +146,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Simulate delay
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // Attempt login
-            const result = loginUser(email, password);
+            // Attempt login using AuthService
+            const result = login(email, password);
             
             if (result.success) {
                 // Redirect to dashboard
@@ -284,8 +221,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Simulate delay
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // Attempt registration
-            const result = registerUser({ name, email, password });
+            // Attempt registration using AuthService
+            const result = register({ name, email, password });
             
             if (result.success) {
                 // Redirect to dashboard

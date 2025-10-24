@@ -1,8 +1,5 @@
-// Get current user from localStorage
-function getCurrentUser() {
-    const saved = localStorage.getItem('nivoxar_current_user');
-    return saved ? JSON.parse(saved) : null;
-}
+// Navbar.js - Navigation component with authentication
+import { getCurrentUser, logout, checkAuth } from '../../services/AuthService.js';
 
 // Create navbar HTML
 export function createNavbar() {
@@ -87,29 +84,9 @@ export function initNavbar() {
 // Handle logout
 function handleLogout() {
     if (confirm('Are you sure you want to logout?')) {
-        localStorage.removeItem('nivoxar_current_user');
-        window.location.href = '/views/LoginPage.html';
+        logout(); // Uses AuthService - includes redirect
     }
 }
 
-// Check authentication
-export function checkAuth() {
-    const currentUser = getCurrentUser();
-    const currentPath = window.location.pathname;
-    
-    // If not logged in and not on login page
-    if (!currentUser && !currentPath.includes('LoginPage.html')) {
-        console.log('❌ Not authenticated, redirecting to login...');
-        window.location.href = '/views/LoginPage.html';
-        return false;
-    }
-    
-    // If logged in and on login page, redirect to dashboard
-    if (currentUser && currentPath.includes('LoginPage.html')) {
-        console.log('✅ Already logged in, redirecting to dashboard...');
-        window.location.href = '/views/DashboardPage.html';
-        return false;
-    }
-    
-    return true;
-}
+// Export checkAuth from AuthService for backward compatibility
+export { checkAuth };

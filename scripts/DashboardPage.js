@@ -4,6 +4,7 @@ import { initSubTasksManager } from './managers/SubTasksManager.js';
 import { initializePopups } from './managers/PopupFactory.js';
 import { setupAllEventListeners } from './managers/EventHandlers.js';
 import { initNavbar, checkAuth } from './components/Navbar.js';
+import { getCurrentUser } from '../services/AuthService.js';
 
 export const dashboardState = {
     tasks: [],
@@ -56,15 +57,12 @@ function initializeDashboard() {
 }
 
 function loadUserData() {
-    const savedUser = localStorage.getItem('nivoxar_user');
-    if (savedUser) {
-        try {
-            const userData = JSON.parse(savedUser);
-            dashboardState.user.name = userData.name;
-            dashboardState.user.email = userData.email;
-        } catch (error) {
-            console.error('Failed to parse user data');
-        }
+    // Use AuthService to get current user
+    const currentUser = getCurrentUser();
+    
+    if (currentUser) {
+        dashboardState.user.name = currentUser.name;
+        dashboardState.user.email = currentUser.email;
     }
 }
 
