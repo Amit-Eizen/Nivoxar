@@ -301,7 +301,7 @@ export function openTaskPopup(mode = 'create', task = null) {
             dashboardState.tempSubTasks = [...task.subTasks];
             openSubTasksSidePanel();
             const container = document.getElementById('tempSubTasksList');
-            if (container) renderTempSubTasks(container);
+            if (container) renderTempSubTasks(dashboardState, container);
         } else {
             document.getElementById('taskHasSubTasks').checked = false;
             dashboardState.tempSubTasks = [];

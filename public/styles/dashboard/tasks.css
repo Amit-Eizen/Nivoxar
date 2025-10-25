@@ -54,7 +54,7 @@
     padding: 20px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 16px;
     align-items: flex-start;
     backdrop-filter: blur(10px);
@@ -186,6 +186,8 @@
 
 .task-content {
     flex: 1;
+    min-width: 0; /* Allow flex item to shrink below content size */
+    overflow: hidden; /* Prevent children from overflowing */
 }
 
 .task-header {
@@ -380,6 +382,7 @@
     background: rgba(245, 158, 11, 0.1);
     color: #f59e0b;
     border: 1px solid rgba(245, 158, 11, 0.2);
+    width: 36px; /* Allow button to expand for content */
 }
 
 .task-actions .action-btn.subtasks-btn:hover,

@@ -251,21 +251,22 @@ function handleClick(e) {
             setTimeout(() => {
                 const container = document.getElementById('subTasksList');
                 if (container) renderSubTasks(task, container);
-                
+
                 const input = document.getElementById('newSubTaskInput');
                 const addBtn = document.getElementById('addSubTaskBtn');
                 const closeBtn = document.getElementById('closeSubTasksBtn');
                 const closePopupBtn = document.getElementById('closeSubTasksPopup');
-                
+
                 if (addBtn) {
                     addBtn.replaceWith(addBtn.cloneNode(true));
                     document.getElementById('addSubTaskBtn').addEventListener('click', () => {
-                        const title = input?.value.trim();
+                        const currentInput = document.getElementById('newSubTaskInput');
+                        const title = currentInput?.value.trim();
                         if (!title) return;
 
                         addSubTask(dashboardState, taskId, title);
-                        input.value = '';
-                        input.focus();
+                        currentInput.value = '';
+                        currentInput.focus();
 
                         const updatedTask = getTaskById(taskId);
                         if (updatedTask && container) {

@@ -49,11 +49,11 @@
     flex-direction: column;
 }
 
-/* Side Panel (Right) - DARKER COLORS */
+/* Side Panel (Right) */
 .popup-content.popup-side {
-    background: rgba(20, 30, 48, 0.95);
+    background: var(--bg-card);
     border-radius: var(--radius-lg);
-    border: 1px solid rgba(51, 65, 85, 0.5);
+    border: 1px solid var(--border-color);
     backdrop-filter: blur(30px);
     overflow: hidden;
     animation: slideInRight 0.3s ease;

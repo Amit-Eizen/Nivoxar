@@ -5,14 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendar - Nivoxar</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="../public/styles/dashboard/variables.css">
     <link rel="stylesheet" href="../public/styles/globals.css">
-    <link rel="stylesheet" href="../public/styles/dashboard/base.css">
+    <link rel="stylesheet" href="../public/styles/DashboardPage.css">
     <link rel="stylesheet" href="../public/styles/navbar.css">
-    <link rel="stylesheet" href="../public/styles/dashboard/components.css">
-    <link rel="stylesheet" href="../public/styles/dashboard/forms.css">
-    <link rel="stylesheet" href="../public/styles/dashboard/popups.css">
-    <link rel="stylesheet" href="../public/styles/dashboard/subtasks.css">
     <link rel="stylesheet" href="../public/styles/CalendarPage.css">
 </head>
 <body>
@@ -362,6 +357,49 @@
                         <i class="fas fa-save"></i>
                         Save Changes
                     </button>
+                </div>
+            </div>
+
+            <!-- SubTasks Side Panel for Edit -->
+            <div class="popup-content popup-side" id="editSubTasksSidePanel" style="display: none;">
+                <div class="side-panel-header">
+                    <h3>
+                        <i class="fas fa-list-check"></i>
+                        SubTasks Manager
+                    </h3>
+                    <button class="panel-close" id="closeEditSubTasksSidePanel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="side-panel-body">
+                    <div class="panel-info">
+                        <i class="fas fa-info-circle"></i>
+                        Add subtasks to break down your main task into smaller, manageable steps.
+                    </div>
+
+                    <div class="subtasks-manager">
+                        <div class="subtask-input-group">
+                            <input
+                                type="text"
+                                id="editNewSubTaskInput"
+                                class="subtask-input"
+                                placeholder="Add new subtask..."
+                            >
+                            <button type="button" class="subtask-add-btn" id="editAddSubTaskBtn">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+
+                        <div class="temp-subtasks-list" id="editSubTasksList">
+                            <div class="subtasks-empty">No subtasks added yet.</div>
+                        </div>
+
+                        <div class="subtasks-summary" id="editSubTasksSummary">
+                            <i class="fas fa-info-circle"></i>
+                            <span class="summary-text">No subtasks yet</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

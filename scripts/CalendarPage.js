@@ -123,7 +123,16 @@ function setupEventListeners() {
     if (editHasSubTasksCheckbox) {
         editHasSubTasksCheckbox.addEventListener('change', toggleEditSubTasksPanel);
     }
-    
+
+    document.getElementById('closeEditSubTasksSidePanel')?.addEventListener('click', closeEditSubTasksPanel);
+    document.getElementById('editAddSubTaskBtn')?.addEventListener('click', handleEditAddSubTask);
+    document.getElementById('editNewSubTaskInput')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleEditAddSubTask();
+        }
+    });
+
     // Recurring - Edit Modal
     const editRecurringCheckbox = document.getElementById('edit-task-recurring');
     if (editRecurringCheckbox) {
@@ -602,6 +611,12 @@ function closeSubTasksPanel() {
     toggleSubTasksPanel();
 }
 
+function closeEditSubTasksPanel() {
+    const checkbox = document.getElementById('edit-task-has-subtasks');
+    checkbox.checked = false;
+    toggleEditSubTasksPanel();
+}
+
 function handleAddSubTask() {
     const input = document.getElementById('newSubTaskTempInput');
     const text = input.value.trim();
@@ -616,6 +631,95 @@ function handleAddSubTask() {
     const container = document.getElementById('tempSubTasksList');
     renderTempSubTasks(calendarState, container);
 }
+
+function handleEditAddSubTask() {
+    const input = document.getElementById('editNewSubTaskInput');
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    // Get the task being edited
+    const taskId = parseInt(document.getElementById('edit-task-id').value);
+    const task = state.tasks.find(t => t.id === taskId);
+
+    if (!task) return;
+
+    // Initialize subTasks array if it doesn't exist
+    if (!task.subTasks) {
+        task.subTasks = [];
+    }
+
+    // Add the new subtask
+    task.subTasks.push({
+        id: Date.now(),
+        text: text,
+        completed: false
+    });
+
+    input.value = '';
+    input.focus();
+
+    // Re-render the subtasks list
+    renderEditSubTasks(task);
+}
+
+function renderEditSubTasks(task) {
+    const container = document.getElementById('editSubTasksList');
+    const summary = document.getElementById('editSubTasksSummary');
+
+    if (!task.subTasks || task.subTasks.length === 0) {
+        container.innerHTML = '<div class="subtasks-empty">No subtasks added yet.</div>';
+        summary.innerHTML = '<i class="fas fa-info-circle"></i><span class="summary-text">No subtasks yet</span>';
+        return;
+    }
+
+    container.innerHTML = '';
+
+    task.subTasks.forEach(subTask => {
+        const div = document.createElement('div');
+        div.className = `subtask-item ${subTask.completed ? 'completed' : ''}`;
+        div.innerHTML = `
+            <label class="subtask-checkbox">
+                <input type="checkbox" ${subTask.completed ? 'checked' : ''}
+                    onchange="window.toggleEditSubTask(${task.id}, ${subTask.id})">
+                <span class="checkmark"></span>
+            </label>
+            <span class="subtask-text">${subTask.text}</span>
+            <div class="subtask-actions">
+                <button class="subtask-delete" onclick="window.deleteEditSubTask(${task.id}, ${subTask.id})" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+
+    const completed = task.subTasks.filter(st => st.completed).length;
+    summary.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        <span class="summary-text">${completed} of ${task.subTasks.length} completed</span>
+    `;
+}
+
+// Global functions for edit subtasks
+window.toggleEditSubTask = function(taskId, subtaskId) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task || !task.subTasks) return;
+
+    const subTask = task.subTasks.find(st => st.id === subtaskId);
+    if (subTask) {
+        subTask.completed = !subTask.completed;
+        renderEditSubTasks(task);
+    }
+};
+
+window.deleteEditSubTask = function(taskId, subtaskId) {
+    const task = state.tasks.find(t => t.id === taskId);
+    if (!task || !task.subTasks) return;
+
+    task.subTasks = task.subTasks.filter(st => st.id !== subtaskId);
+    renderEditSubTasks(task);
+};
 
 // Global functions for onclick handlers
 window.toggleTempSubTask = function(subtaskId) {
@@ -655,14 +759,20 @@ function toggleEditRecurringOptions() {
 
 function toggleEditSubTasksPanel() {
     const checkbox = document.getElementById('edit-task-has-subtasks');
-    const panel = document.getElementById('subTasksSidePanel');
+    const panel = document.getElementById('editSubTasksSidePanel');
     const wrapper = document.getElementById('edit-popup-wrapper');
-    
+
     if (checkbox.checked) {
         panel.style.display = 'flex';
         wrapper.classList.add('with-sidebar');
-        // TODO: Load existing subtasks for editing
-        console.log('Edit SubTasks enabled - TODO: render existing subtasks');
+
+        // Load existing subtasks if editing a task
+        const taskId = parseInt(document.getElementById('edit-task-id').value);
+        const task = state.tasks.find(t => t.id === taskId);
+
+        if (task) {
+            renderEditSubTasks(task);
+        }
     } else {
         panel.style.display = 'none';
         wrapper.classList.remove('with-sidebar');
@@ -715,8 +825,12 @@ function openEditModal(task) {
     const hasSubTasksCheckbox = document.getElementById('edit-task-has-subtasks');
     if (hasSubTasksCheckbox) {
         hasSubTasksCheckbox.checked = task.subTasks && task.subTasks.length > 0;
+        // Trigger the panel opening if there are subtasks
+        if (hasSubTasksCheckbox.checked) {
+            toggleEditSubTasksPanel();
+        }
     }
-    
+
     // Recurring checkbox and options
     const recurringCheckbox = document.getElementById('edit-task-recurring');
     const recurringOptions = document.getElementById('edit-recurring-options');
@@ -739,6 +853,14 @@ function closeEditModal() {
     const modal = document.getElementById('edit-task-modal');
     modal.classList.remove('active');
     state.editingTask = null;
+
+    // Close subtasks panel if open
+    const panel = document.getElementById('editSubTasksSidePanel');
+    const wrapper = document.getElementById('edit-popup-wrapper');
+    if (panel && panel.style.display === 'flex') {
+        panel.style.display = 'none';
+        wrapper.classList.remove('with-sidebar');
+    }
 }
 
 function openMoreTasksModal(date) {
