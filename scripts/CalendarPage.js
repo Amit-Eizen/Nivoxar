@@ -2,18 +2,26 @@ import { getCurrentUser } from '../services/AuthService.js';
 import { getAllCategoriesSync, getCategoryOptionsHTML } from '../services/CategoryService.js';
 import { getPriorityName, formatDate, formatTime } from '../utils/TaskUtils.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
+import { addTempSubTask, toggleTempSubTask, deleteTempSubTask, renderTempSubTasks, clearTempSubTasks } from './managers/CalendarSubTasksManager.js';
 
+// ==========================================
 // State Management
-const state = {
+// ==========================================
+export const calendarState = {
     tasks: [],
     categories: [],
     currentDate: new Date(),
     viewMode: 'month', // month, week, day
     selectedDate: null,
-    editingTask: null
+    editingTask: null,
+    tempSubTasks: [] // Temporary subtasks while creating
 };
 
+const state = calendarState; // Keep backward compatibility
+
+// ==========================================
 // Initialize Calendar Page
+// ==========================================
 async function init() {
     try {
         // Check authentication
@@ -47,7 +55,9 @@ async function init() {
     }
 }
 
+// ==========================================
 // Data Loading
+// ==========================================
 async function loadCalendarData() {
     try {
         // Get tasks from localStorage
@@ -63,12 +73,16 @@ async function loadCalendarData() {
     }
 }
 
+// ==========================================
 // Save Tasks
+// ==========================================
 function saveTasks() {
     localStorage.setItem('nivoxar_tasks', JSON.stringify(state.tasks));
 }
 
+// ==========================================
 // Event Listeners Setup
+// ==========================================
 function setupEventListeners() {
     // View switcher
     document.querySelectorAll('.view-btn').forEach(btn => {
@@ -91,11 +105,44 @@ function setupEventListeners() {
     document.getElementById('cancel-create').addEventListener('click', closeCreateModal);
     document.getElementById('create-task-form').addEventListener('submit', handleCreateTask);
     
+    // SubTasks - Create Modal
+    const hasSubTasksCheckbox = document.getElementById('task-has-subtasks');
+    if (hasSubTasksCheckbox) {
+        hasSubTasksCheckbox.addEventListener('change', toggleSubTasksPanel);
+    }
+    
+    document.getElementById('close-create-subtasks-panel')?.addEventListener('click', closeSubTasksPanel);
+    document.getElementById('create-add-subtask-btn')?.addEventListener('click', handleAddSubTask);
+    document.getElementById('create-new-subtask-input')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddSubTask();
+        }
+    });
+    
+    // Recurring - Create Modal
+    const recurringCheckbox = document.getElementById('task-recurring');
+    if (recurringCheckbox) {
+        recurringCheckbox.addEventListener('change', toggleRecurringOptions);
+    }
+    
     // Edit modal
     document.getElementById('close-edit-modal').addEventListener('click', closeEditModal);
     document.getElementById('cancel-edit').addEventListener('click', closeEditModal);
     document.getElementById('delete-task').addEventListener('click', handleDeleteTask);
     document.getElementById('edit-task-form').addEventListener('submit', handleUpdateTask);
+    
+    // SubTasks - Edit Modal
+    const editHasSubTasksCheckbox = document.getElementById('edit-task-has-subtasks');
+    if (editHasSubTasksCheckbox) {
+        editHasSubTasksCheckbox.addEventListener('change', toggleEditSubTasksPanel);
+    }
+    
+    // Recurring - Edit Modal
+    const editRecurringCheckbox = document.getElementById('edit-task-recurring');
+    if (editRecurringCheckbox) {
+        editRecurringCheckbox.addEventListener('change', toggleEditRecurringOptions);
+    }
     
     // More Tasks modal
     document.getElementById('close-more-tasks-modal').addEventListener('click', closeMoreTasksModal);
@@ -113,7 +160,9 @@ function setupEventListeners() {
     });
 }
 
+// ==========================================
 // View Management
+// ==========================================
 function switchView(view) {
     state.viewMode = view;
     
@@ -169,7 +218,9 @@ function goToToday() {
     renderCalendar();
 }
 
+// ==========================================
 // Render Calendar
+// ==========================================
 function renderCalendar() {
     updatePeriodDisplay();
     
@@ -212,7 +263,9 @@ function updatePeriodDisplay() {
     }
 }
 
+// ==========================================
 // Render Month View
+// ==========================================
 function renderMonthView() {
     const grid = document.getElementById('calendar-grid');
     const year = state.currentDate.getFullYear();
@@ -303,6 +356,15 @@ function renderMonthView() {
             }
         });
     });
+    
+    // Add click handlers for tasks
+    grid.querySelectorAll('.day-task').forEach(taskEl => {
+        taskEl.addEventListener('click', (e) => {
+            e.stopPropagation(); // Don't trigger day click
+            const date = new Date(taskEl.closest('.calendar-day').dataset.date);
+            openMoreTasksModal(date);
+        });
+    });
 }
 
 function renderDayTasks(tasks) {
@@ -317,7 +379,9 @@ function renderDayTasks(tasks) {
     }).join('');
 }
 
+// ==========================================
 // Render Week View
+// ==========================================
 function renderWeekView() {
     const grid = document.getElementById('calendar-grid');
     const weekStart = getWeekStart(state.currentDate);
@@ -390,18 +454,22 @@ function renderWeekView() {
     html += '</div>';
     grid.innerHTML = html;
     
-    // Add click handlers
+    // Add click handlers - click on task opens More Tasks modal for that day
     grid.querySelectorAll('.day-task').forEach(taskEl => {
         taskEl.addEventListener('click', (e) => {
             e.stopPropagation();
-            const taskId = parseInt(taskEl.dataset.taskId);
-            const task = state.tasks.find(t => t.id === taskId);
-            if (task) openEditModal(task);
+            const slotEl = taskEl.closest('.week-day-slot');
+            if (slotEl && slotEl.dataset.date) {
+                const date = new Date(slotEl.dataset.date);
+                openMoreTasksModal(date);
+            }
         });
     });
 }
 
+// ==========================================
 // Render Day View
+// ==========================================
 function renderDayView() {
     const grid = document.getElementById('calendar-grid');
     const tasks = getTasksForDate(state.currentDate);
@@ -459,12 +527,50 @@ function renderDayView() {
     });
 }
 
+// ==========================================
 // Helper Functions
+// ==========================================
 function getTasksForDate(date) {
     const dateStr = date.toDateString();
     return state.tasks.filter(task => {
         if (!task.dueDate) return false;
-        return new Date(task.dueDate).toDateString() === dateStr;
+        
+        // Check if task is on this date
+        if (new Date(task.dueDate).toDateString() === dateStr) {
+            return true;
+        }
+        
+        // Check if task is recurring and should appear on this date
+        if (task.recurring && task.recurring.enabled) {
+            const taskDate = new Date(task.dueDate);
+            const checkDate = new Date(date);
+            
+            // If date is before task start date, don't show
+            if (checkDate < taskDate) return false;
+            
+            // If end date is set and date is after end date, don't show
+            if (task.recurring.endDate) {
+                const endDate = new Date(task.recurring.endDate);
+                if (checkDate > endDate) return false;
+            }
+            
+            // Check frequency
+            switch (task.recurring.frequency) {
+                case 'daily':
+                    return true;
+                    
+                case 'weekly':
+                    return taskDate.getDay() === checkDate.getDay();
+                    
+                case 'monthly':
+                    return taskDate.getDate() === checkDate.getDate();
+                    
+                default:
+                    return false;
+            }
+        }
+        
+        return false;
     }).sort((a, b) => {
         if (a.dueTime && b.dueTime) {
             return a.dueTime.localeCompare(b.dueTime);
@@ -498,7 +604,97 @@ function isSameDay(date1, date2) {
     return date1.toDateString() === date2.toDateString();
 }
 
+// ==========================================
+// SubTasks Management (UI handlers only)
+// ==========================================
+function toggleSubTasksPanel() {
+    const checkbox = document.getElementById('task-has-subtasks');
+    const panel = document.getElementById('create-subtasks-panel');
+    const wrapper = document.getElementById('create-popup-wrapper');
+    
+    if (checkbox.checked) {
+        panel.style.display = 'flex';
+        wrapper.classList.add('with-sidebar');
+        const container = document.getElementById('create-subtasks-list');
+        renderTempSubTasks(container);
+    } else {
+        panel.style.display = 'none';
+        wrapper.classList.remove('with-sidebar');
+        clearTempSubTasks();
+    }
+}
+
+function closeSubTasksPanel() {
+    const checkbox = document.getElementById('task-has-subtasks');
+    checkbox.checked = false;
+    toggleSubTasksPanel();
+}
+
+function handleAddSubTask() {
+    const input = document.getElementById('create-new-subtask-input');
+    const text = input.value.trim();
+    
+    if (!text) return;
+    
+    addTempSubTask(text);
+    
+    input.value = '';
+    input.focus();
+    
+    const container = document.getElementById('create-subtasks-list');
+    renderTempSubTasks(container);
+}
+
+// Global functions for onclick handlers
+window.toggleTempSubTask = function(subtaskId) {
+    toggleTempSubTask(subtaskId);
+    const container = document.getElementById('create-subtasks-list');
+    renderTempSubTasks(container);
+};
+
+window.deleteTempSubTask = function(subtaskId) {
+    deleteTempSubTask(subtaskId);
+    const container = document.getElementById('create-subtasks-list');
+    renderTempSubTasks(container);
+};
+
+// ==========================================
+// Recurring Management
+// ==========================================
+function toggleRecurringOptions() {
+    const checkbox = document.getElementById('task-recurring');
+    const options = document.getElementById('recurring-options');
+    
+    if (checkbox.checked) {
+        options.style.display = 'block';
+    } else {
+        options.style.display = 'none';
+    }
+}
+
+function toggleEditRecurringOptions() {
+    const checkbox = document.getElementById('edit-task-recurring');
+    const options = document.getElementById('edit-recurring-options');
+    
+    if (checkbox.checked) {
+        options.style.display = 'block';
+    } else {
+        options.style.display = 'none';
+    }
+}
+
+function toggleEditSubTasksPanel() {
+    const checkbox = document.getElementById('edit-task-has-subtasks');
+    // For now, just show/hide the checkbox state
+    // SubTasks editing in Edit modal can be implemented later
+    if (checkbox.checked) {
+        console.log('Edit SubTasks enabled');
+    }
+}
+
+// ==========================================
 // Modal Management
+// ==========================================
 function openCreateModal() {
     const modal = document.getElementById('create-task-modal');
     modal.classList.add('active');
@@ -538,6 +734,29 @@ function openEditModal(task) {
     }
     if (task.dueTime) {
         document.getElementById('edit-task-due-time').value = task.dueTime;
+    }
+    
+    // SubTasks checkbox
+    const hasSubTasksCheckbox = document.getElementById('edit-task-has-subtasks');
+    if (hasSubTasksCheckbox) {
+        hasSubTasksCheckbox.checked = task.subTasks && task.subTasks.length > 0;
+    }
+    
+    // Recurring checkbox and options
+    const recurringCheckbox = document.getElementById('edit-task-recurring');
+    const recurringOptions = document.getElementById('edit-recurring-options');
+    if (recurringCheckbox && recurringOptions) {
+        if (task.recurring && task.recurring.enabled) {
+            recurringCheckbox.checked = true;
+            recurringOptions.style.display = 'block';
+            document.getElementById('edit-recurring-frequency').value = task.recurring.frequency || 'daily';
+            if (task.recurring.endDate) {
+                document.getElementById('edit-recurring-end-date').value = task.recurring.endDate;
+            }
+        } else {
+            recurringCheckbox.checked = false;
+            recurringOptions.style.display = 'none';
+        }
     }
 }
 
@@ -636,7 +855,9 @@ function closeMoreTasksModal() {
     modal.classList.remove('active');
 }
 
+// ==========================================
 // Task Management
+// ==========================================
 async function handleCreateTask(e) {
     e.preventDefault();
     
@@ -658,11 +879,26 @@ async function handleCreateTask(e) {
         dueDate,
         dueTime,
         completed: false,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        subTasks: calendarState.tempSubTasks.length > 0 ? [...calendarState.tempSubTasks] : [],
+        recurring: null
     };
+    
+    // Handle recurring
+    const recurringCheckbox = document.getElementById('task-recurring');
+    if (recurringCheckbox?.checked) {
+        newTask.recurring = {
+            enabled: true,
+            frequency: document.getElementById('recurring-frequency').value,
+            endDate: document.getElementById('recurring-end-date').value
+        };
+    }
     
     state.tasks.push(newTask);
     saveTasks();
+    
+    // Reset
+    clearTempSubTasks();
     closeCreateModal();
     renderCalendar();
 }
@@ -682,6 +918,18 @@ async function handleUpdateTask(e) {
     task.dueDate = document.getElementById('edit-task-due-date').value;
     task.dueTime = document.getElementById('edit-task-due-time').value;
     
+    // Handle recurring
+    const recurringCheckbox = document.getElementById('edit-task-recurring');
+    if (recurringCheckbox?.checked) {
+        task.recurring = {
+            enabled: true,
+            frequency: document.getElementById('edit-recurring-frequency').value,
+            endDate: document.getElementById('edit-recurring-end-date').value
+        };
+    } else {
+        task.recurring = null;
+    }
+    
     saveTasks();
     closeEditModal();
     renderCalendar();
@@ -698,7 +946,9 @@ async function handleDeleteTask() {
     renderCalendar();
 }
 
+// ==========================================
 // UI Helpers
+// ==========================================
 function showLoading() {
     document.getElementById('loading').style.display = 'flex';
     document.getElementById('calendar-page').style.display = 'none';
@@ -709,7 +959,9 @@ function hideLoading() {
     document.getElementById('calendar-page').style.display = 'block';
 }
 
+// ==========================================
 // Initialize on DOM Ready
+// ==========================================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

@@ -5,10 +5,10 @@
 /* - globals.css (animations, utilities) */
 /* - base.css (background effects) */
 /* - navbar.css (navigation bar) */
-/* - components.css (buttons, UI components)  */
-/* - forms.css (form inputs and styles) */
-/* - popups.css (modal overlays and structure)  */
-/* - subtasks.css (task list items)  */
+/* - components.css (buttons, UI components) ✅ */
+/* - forms.css (form inputs and styles) ✅ */
+/* - popups.css (modal overlays and structure) ✅ */
+/* - subtasks.css (task list items) ✅ */
 
 /* ===== Calendar Page Container ===== */
 .calendar-page {
@@ -439,6 +439,21 @@
 .meta-priority.priority-medium { color: #f59e0b; }
 .meta-priority.priority-high { color: #ef4444; }
 .meta-priority.priority-urgent { color: #dc2626; }
+
+/* SubTasks Add Section */
+.subtasks-add {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.subtasks-add .form-input {
+    flex: 1;
+}
+
+.subtasks-add .btn {
+    white-space: nowrap;
+}
 
 /* ===== Responsive Design ===== */
 @media (max-width: 1024px) {
