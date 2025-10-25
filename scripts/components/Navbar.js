@@ -52,9 +52,12 @@ export function createNavbar() {
                 </ul>
                 
                 <div class="navbar-user">
-                    <div class="user-info">
-                        <i class="fas fa-user-circle"></i>
-                        <span>${currentUser.name || currentUser.email}</span>
+                    <div class="user-info" id="userProfileBtn" style="cursor: pointer;">
+                        ${currentUser.profilePicture
+                            ? `<div class="user-avatar"><img src="${currentUser.profilePicture}" alt="Profile"></div>`
+                            : `<div class="user-avatar"><i class="fas fa-user-circle"></i></div>`
+                        }
+                        <span>${currentUser.username || currentUser.name || currentUser.email}</span>
                     </div>
                     <button class="btn-logout" id="logoutBtn">
                         <i class="fas fa-sign-out-alt"></i>
@@ -83,7 +86,15 @@ export function initNavbar() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', handleLogout);
     }
-    
+
+    // Setup profile button
+    const profileBtn = document.getElementById('userProfileBtn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', () => {
+            window.location.href = '/views/ProfilePage.html';
+        });
+    }
+
     console.log('✅ Navbar initialized');
 }
 

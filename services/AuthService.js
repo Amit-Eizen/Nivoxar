@@ -181,3 +181,78 @@ export function checkIfLoggedIn() {
     }
     return false;
 }
+
+// ===== UPDATE USER =====
+
+/**
+ * Update user information
+ * @param {Object} updatedUser - Updated user object
+ * @returns {boolean} True if update successful
+ */
+export function updateUser(updatedUser) {
+    try {
+        const users = getUsers();
+        const index = users.findIndex(u => u.id === updatedUser.id);
+
+        if (index === -1) {
+            throw new Error('User not found');
+        }
+
+        // Update in users array
+        users[index] = updatedUser;
+        saveUsers(users);
+
+        // Update current user in localStorage
+        setCurrentUser(updatedUser);
+
+        console.log('✅ User updated successfully');
+        return true;
+    } catch (error) {
+        console.error('❌ Error updating user:', error);
+        throw error;
+    }
+}
+
+// ===== CHANGE PASSWORD =====
+
+/**
+ * Change user password
+ * @param {string} currentPassword - Current password
+ * @param {string} newPassword - New password
+ * @returns {boolean} True if password changed successfully
+ */
+export function changePassword(currentPassword, newPassword) {
+    try {
+        const currentUser = getCurrentUser();
+
+        if (!currentUser) {
+            throw new Error('User not logged in');
+        }
+
+        // Verify current password
+        if (currentUser.password !== currentPassword) {
+            throw new Error('Current password is incorrect');
+        }
+
+        // Update password
+        currentUser.password = newPassword;
+
+        // Save changes
+        const users = getUsers();
+        const index = users.findIndex(u => u.id === currentUser.id);
+
+        if (index === -1) {
+            throw new Error('User not found');
+        }
+
+        users[index] = currentUser;
+        saveUsers(users);
+        setCurrentUser(currentUser);
+
+        console.log('✅ Password changed successfully');
+        return true;
+    } catch (error) {
+        console.error('❌ Error changing password:', error);
+        throw error;
+    }
+}
