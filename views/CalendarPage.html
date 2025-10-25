@@ -155,7 +155,7 @@
                                 <input type="checkbox" id="task-has-subtasks">
                                 <span class="checkbox-custom"></span>
                                 <span>
-                                    <i class="fas "></i>
+                                    <i class="fas fa-tasks"></i>
                                     Add SubTasks
                                 </span>
                             </label>
@@ -167,7 +167,7 @@
                                 <input type="checkbox" id="task-recurring">
                                 <span class="checkbox-custom"></span>
                                 <span>
-                                    <i class="fas"></i>
+                                    <i class="fas fa-redo"></i>
                                     Recurring Task
                                 </span>
                             </label>
@@ -204,13 +204,13 @@
             </div>
 
             <!-- SubTasks Side Panel -->
-            <div class="popup-content popup-side" id="create-subtasks-panel" style="display: none;">
+            <div class="popup-content popup-side" id="subTasksSidePanel" style="display: none;">
                 <div class="side-panel-header">
                     <h3>
-                        <i class="fas fa-tasks"></i>
-                        SubTasks
+                        <i class="fas fa-list-check"></i>
+                        SubTasks Manager
                     </h3>
-                    <button class="panel-close" id="close-create-subtasks-panel">
+                    <button class="panel-close" id="closeSubTasksSidePanel">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -218,24 +218,30 @@
                 <div class="side-panel-body">
                     <div class="panel-info">
                         <i class="fas fa-info-circle"></i>
-                        <span>Break down your task into smaller, manageable steps</span>
+                        Add subtasks to break down your main task into smaller, manageable steps.
                     </div>
 
-                    <div class="subtasks-add">
-                        <input 
-                            type="text" 
-                            id="create-new-subtask-input" 
-                            class="form-input" 
-                            placeholder="Enter subtask title..."
-                        >
-                        <button class="btn btn-primary" id="create-add-subtask-btn">
-                            <i class="fas fa-plus"></i>
-                            <span>Add</span>
-                        </button>
-                    </div>
+                    <div class="subtasks-manager">
+                        <div class="subtask-input-group">
+                            <input 
+                                type="text" 
+                                id="newSubTaskTempInput" 
+                                class="subtask-input" 
+                                placeholder="Add new subtask..."
+                            >
+                            <button type="button" class="subtask-add-btn" id="addSubTaskTempBtn">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
 
-                    <div id="create-subtasks-list" class="subtasks-list">
-                        <!-- Dynamic subtasks will be inserted here -->
+                        <div class="temp-subtasks-list" id="tempSubTasksList">
+                            <div class="subtasks-empty">No subtasks added yet.</div>
+                        </div>
+
+                        <div class="subtasks-summary" id="tempSubTasksSummary">
+                            <i class="fas fa-info-circle"></i>
+                            <span class="summary-text">No subtasks yet</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -244,7 +250,7 @@
 
     <!-- Edit Task Modal -->
     <div id="edit-task-modal" class="modal-overlay" style="display: none;">
-        <div class="popup-wrapper">
+        <div class="popup-wrapper" id="edit-popup-wrapper">
             <div class="popup-content popup-main">
                 <div class="popup-header">
                     <h2>

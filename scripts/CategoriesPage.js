@@ -2,6 +2,7 @@
 import { initNavbar } from './components/Navbar.js';
 import { getCategories, createCategory, updateCategory, deleteCategory,
     renderCategories, renderColorOptions } from './managers/CategoriesManager.js';
+import { requireAuth } from '../middleware/AuthMiddleware.js';
 
 // ===== STATE =====
 const state = {
@@ -15,7 +16,10 @@ let elements = {};
 // ===== INITIALIZATION =====
 function initializePage() {
     console.log('🚀 Initializing Categories Page...');
-    
+
+    // Check authentication
+    if (!requireAuth()) return;
+
     // Initialize Navbar (no parameter needed - it auto-detects page)
     initNavbar();
     

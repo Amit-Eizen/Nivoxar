@@ -1,5 +1,5 @@
-import { dashboardState } from '../DashboardPage.js';
-import { getTaskById } from './TaskManager.js';
+// SubTasksManager.js - Unified subtasks manager for all pages
+import { saveTasksToLocalStorage } from '../../utils/TaskUtils.js';
 
 export function initSubTasksManager() {
     console.log('✅ SubTasks Manager initialized');
@@ -7,50 +7,50 @@ export function initSubTasksManager() {
 
 // ========== EXISTING TASK SUBTASKS ==========
 
-export function addSubTask(taskId, text) {
-    const task = dashboardState.tasks.find(t => t.id === taskId);
+export function addSubTask(tasksState, taskId, text) {
+    const task = tasksState.tasks.find(t => t.id === taskId);
     if (!task) return;
-    
+
     if (!task.subTasks) task.subTasks = [];
-    
+
     task.subTasks.push({
         id: Date.now(),
         text: text,
         completed: false
     });
-    
-    saveTasksToLocalStorage();
+
+    saveTasksToLocalStorage(tasksState.tasks);
 }
 
-export function editSubTask(taskId, subTaskId, newText) {
-    const task = dashboardState.tasks.find(t => t.id === taskId);
+export function editSubTask(tasksState, taskId, subTaskId, newText) {
+    const task = tasksState.tasks.find(t => t.id === taskId);
     if (!task?.subTasks) return;
-    
+
     const subTask = task.subTasks.find(st => st.id === subTaskId);
     if (subTask) {
         subTask.text = newText;
-        saveTasksToLocalStorage();
+        saveTasksToLocalStorage(tasksState.tasks);
     }
 }
 
-export function toggleSubTask(taskId, subTaskId) {
-    const task = dashboardState.tasks.find(t => t.id === taskId);
+export function toggleSubTask(tasksState, taskId, subTaskId) {
+    const task = tasksState.tasks.find(t => t.id === taskId);
     if (!task?.subTasks) return;
-    
+
     const subTask = task.subTasks.find(st => st.id === subTaskId);
     if (subTask) {
         subTask.completed = !subTask.completed;
         console.log('✅ SubTask toggled:', subTaskId, subTask.completed);
-        saveTasksToLocalStorage();
+        saveTasksToLocalStorage(tasksState.tasks);
     }
 }
 
-export function deleteSubTask(taskId, subTaskId) {
-    const task = dashboardState.tasks.find(t => t.id === taskId);
+export function deleteSubTask(tasksState, taskId, subTaskId) {
+    const task = tasksState.tasks.find(t => t.id === taskId);
     if (!task?.subTasks) return;
-    
+
     task.subTasks = task.subTasks.filter(st => st.id !== subTaskId);
-    saveTasksToLocalStorage();
+    saveTasksToLocalStorage(tasksState.tasks);
 }
 
 // Render SubTasks in popup (for existing task)
@@ -59,66 +59,15 @@ export function renderSubTasks(task, container) {
         container.innerHTML = '<div class="subtasks-empty">No subtasks yet. Add one above!</div>';
         return;
     }
-    
+
     container.innerHTML = '';
-    
+
     task.subTasks.forEach(subTask => {
         const subTaskEl = createSubTaskElement(subTask, task.id);
         container.appendChild(subTaskEl);
-        
-        // ✅ Add event listeners after creating element
-        /* attachSubTaskListeners(subTaskEl, task.id, subTask.id); */
     });
-    
-    console.log('🎨 Rendered subtasks for task:', task.id, task.subTasks.map(st => ({id: st.id, completed: st.completed})));
-}
 
-// Attach listeners to subtask element
-function attachSubTaskListeners(element, taskId, subTaskId) {
-    const checkbox = element.querySelector('input[type="checkbox"]');
-    const editBtn = element.querySelector('.subtask-edit');
-    const deleteBtn = element.querySelector('.subtask-delete');
-    
-    if (checkbox) {
-        checkbox.addEventListener('change', () => {
-            toggleSubTask(taskId, subTaskId);
-            const task = getTaskById(taskId);
-            const container = document.getElementById('subTasksList');
-            if (task && container) renderSubTasks(task, container);
-            
-            // Update info in popup
-            const countEl = document.getElementById('subtasksCompleted');
-            if (countEl && task.subTasks) {
-                const completed = task.subTasks.filter(st => st.completed).length;
-                countEl.textContent = completed;
-            }
-        });
-    }
-    
-    if (deleteBtn) {
-        deleteBtn.addEventListener('click', () => {
-            deleteSubTask(taskId, subTaskId);
-            const task = getTaskById(taskId);
-            const container = document.getElementById('subTasksList');
-            if (task && container) {
-                renderSubTasks(task, container);
-                
-                // Update info in popup
-                const countEl = document.getElementById('subtasksCount');
-                const completedEl = document.getElementById('subtasksCompleted');
-                if (task.subTasks) {
-                    const completed = task.subTasks.filter(st => st.completed).length;
-                    if (countEl) countEl.textContent = task.subTasks.length;
-                    if (completedEl) completedEl.textContent = completed;
-                } else {
-                    if (countEl) countEl.textContent = '0';
-                    if (completedEl) completedEl.textContent = '0';
-                }
-            }
-        });
-    }
-    
-    // Edit functionality handled by global click handler
+    console.log('🎨 Rendered subtasks for task:', task.id, task.subTasks.map(st => ({id: st.id, completed: st.completed})));
 }
 
 // Escape HTML to prevent XSS
@@ -126,15 +75,6 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-}
-
-// Save tasks to localStorage
-function saveTasksToLocalStorage() {
-    try {
-        localStorage.setItem('nivoxar_tasks', JSON.stringify(dashboardState.tasks));
-    } catch (error) {
-        console.error('Failed to save tasks');
-    }
 }
 
 function createSubTaskElement(subTask, taskId) {
@@ -164,34 +104,34 @@ function createSubTaskElement(subTask, taskId) {
 
 // ========== TEMPORARY SUBTASKS ==========
 
-export function addTempSubTask(text) {
-    dashboardState.tempSubTasks.push({
+export function addTempSubTask(tasksState, text) {
+    tasksState.tempSubTasks.push({
         id: Date.now(),
         text: text,
         completed: false
     });
 }
 
-export function editTempSubTask(subTaskId, newText) {
-    const subTask = dashboardState.tempSubTasks.find(st => st.id === subTaskId);
+export function editTempSubTask(tasksState, subTaskId, newText) {
+    const subTask = tasksState.tempSubTasks.find(st => st.id === subTaskId);
     if (subTask) subTask.text = newText;
 }
 
-export function toggleTempSubTask(subTaskId) {
-    const subTask = dashboardState.tempSubTasks.find(st => st.id === subTaskId);
+export function toggleTempSubTask(tasksState, subTaskId) {
+    const subTask = tasksState.tempSubTasks.find(st => st.id === subTaskId);
     if (subTask) subTask.completed = !subTask.completed;
 }
 
-export function deleteTempSubTask(subTaskId) {
-    dashboardState.tempSubTasks = dashboardState.tempSubTasks.filter(st => st.id !== subTaskId);
+export function deleteTempSubTask(tasksState, subTaskId) {
+    tasksState.tempSubTasks = tasksState.tempSubTasks.filter(st => st.id !== subTaskId);
 }
 
-export function clearTempSubTasks() {
-    dashboardState.tempSubTasks = [];
+export function clearTempSubTasks(tasksState) {
+    tasksState.tempSubTasks = [];
 }
 
-export function renderTempSubTasks(container) {
-    const tempSubTasks = dashboardState.tempSubTasks || [];
+export function renderTempSubTasks(tasksState, container) {
+    const tempSubTasks = tasksState.tempSubTasks || [];
     
     if (tempSubTasks.length === 0) {
         container.innerHTML = '<div class="subtasks-empty">No subtasks added yet.</div>';
@@ -208,8 +148,8 @@ export function renderTempSubTasks(container) {
         const el = createTempSubTaskElement(subTask);
         container.appendChild(el);
     });
-    
-    updateTempSummary();
+
+    updateTempSummary(tasksState);
 }
 
 function createTempSubTaskElement(subTask) {
@@ -236,13 +176,13 @@ function createTempSubTaskElement(subTask) {
     return div;
 }
 
-function updateTempSummary() {
+function updateTempSummary(tasksState) {
     const summary = document.getElementById('tempSubTasksSummary');
     if (!summary) return;
-    
-    const total = dashboardState.tempSubTasks.length;
-    const completed = dashboardState.tempSubTasks.filter(st => st.completed).length;
-    
+
+    const total = tasksState.tempSubTasks.length;
+    const completed = tasksState.tempSubTasks.filter(st => st.completed).length;
+
     summary.innerHTML = `
         <i class="fas fa-check-circle"></i>
         <span class="summary-text">${completed} of ${total} completed</span>

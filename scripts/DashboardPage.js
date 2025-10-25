@@ -3,8 +3,8 @@ import { initTaskManager, renderTasks, updateStats } from './managers/TaskManage
 import { initSubTasksManager } from './managers/SubTasksManager.js';
 import { initializePopups } from './managers/PopupFactory.js';
 import { setupAllEventListeners } from './managers/EventHandlers.js';
-import { initNavbar, checkAuth } from './components/Navbar.js';
-import { getCurrentUser } from '../services/AuthService.js';
+import { initNavbar } from './components/Navbar.js';
+import { requireAuth } from '../middleware/AuthMiddleware.js';
 
 export const dashboardState = {
     tasks: [],
@@ -14,15 +14,19 @@ export const dashboardState = {
     tasksPerPage: 10,
     totalPages: 1,
     user: {
-        name: 'Guest User',     
-        email: 'guest@nivoxar.com'    
+        name: 'Guest User',
+        email: 'guest@nivoxar.com'
     },
     tempSubTasks: []
 };
 
 function initializeDashboard() {
     console.log('🚀 Initializing Dashboard...');
-    checkAuth();
+
+    // Check authentication
+    const currentUser = requireAuth();
+    if (!currentUser) return;
+
     initNavbar();
     
     // Read category filter from URL
@@ -57,9 +61,8 @@ function initializeDashboard() {
 }
 
 function loadUserData() {
-    // Use AuthService to get current user
-    const currentUser = getCurrentUser();
-    
+    // Use AuthMiddleware - user is already checked in initializeDashboard
+    const currentUser = requireAuth();
     if (currentUser) {
         dashboardState.user.name = currentUser.name;
         dashboardState.user.email = currentUser.email;

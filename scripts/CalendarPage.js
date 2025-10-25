@@ -1,12 +1,10 @@
-import { getCurrentUser } from '../services/AuthService.js';
 import { getAllCategoriesSync, getCategoryOptionsHTML } from '../services/CategoryService.js';
-import { getPriorityName, formatDate, formatTime } from '../utils/TaskUtils.js';
+import { getPriorityName, formatDate, formatTime, saveTasksToLocalStorage, loadTasksFromLocalStorage } from '../utils/TaskUtils.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
-import { addTempSubTask, toggleTempSubTask, deleteTempSubTask, renderTempSubTasks, clearTempSubTasks } from './managers/CalendarSubTasksManager.js';
+import { requireAuth } from '../middleware/AuthMiddleware.js';
+import { addTempSubTask, toggleTempSubTask, deleteTempSubTask, renderTempSubTasks, clearTempSubTasks } from './managers/SubTasksManager.js';
 
-// ==========================================
 // State Management
-// ==========================================
 export const calendarState = {
     tasks: [],
     categories: [],
@@ -19,18 +17,13 @@ export const calendarState = {
 
 const state = calendarState; // Keep backward compatibility
 
-// ==========================================
 // Initialize Calendar Page
-// ==========================================
 async function init() {
     try {
         // Check authentication
-        const user = getCurrentUser();
-        if (!user) {
-            window.location.href = './LoginPage.html';
-            return;
-        }
-        
+        const user = requireAuth();
+        if (!user) return;
+
         // Initialize Navbar
         initNavbar();
         
@@ -55,34 +48,27 @@ async function init() {
     }
 }
 
-// ==========================================
 // Data Loading
-// ==========================================
 async function loadCalendarData() {
     try {
-        // Get tasks from localStorage
-        const tasksJson = localStorage.getItem('nivoxar_tasks');
-        state.tasks = tasksJson ? JSON.parse(tasksJson) : [];
-        
+        // Get tasks from localStorage using centralized function
+        state.tasks = loadTasksFromLocalStorage();
+
         // Get categories
         state.categories = getAllCategoriesSync();
-        
+
     } catch (error) {
         console.error('Error loading data:', error);
         throw error;
     }
 }
 
-// ==========================================
 // Save Tasks
-// ==========================================
 function saveTasks() {
-    localStorage.setItem('nivoxar_tasks', JSON.stringify(state.tasks));
+    saveTasksToLocalStorage(state.tasks);
 }
 
-// ==========================================
 // Event Listeners Setup
-// ==========================================
 function setupEventListeners() {
     // View switcher
     document.querySelectorAll('.view-btn').forEach(btn => {
@@ -111,9 +97,9 @@ function setupEventListeners() {
         hasSubTasksCheckbox.addEventListener('change', toggleSubTasksPanel);
     }
     
-    document.getElementById('close-create-subtasks-panel')?.addEventListener('click', closeSubTasksPanel);
-    document.getElementById('create-add-subtask-btn')?.addEventListener('click', handleAddSubTask);
-    document.getElementById('create-new-subtask-input')?.addEventListener('keypress', (e) => {
+    document.getElementById('closeSubTasksSidePanel')?.addEventListener('click', closeSubTasksPanel);
+    document.getElementById('addSubTaskTempBtn')?.addEventListener('click', handleAddSubTask);
+    document.getElementById('newSubTaskTempInput')?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             handleAddSubTask();
@@ -160,9 +146,7 @@ function setupEventListeners() {
     });
 }
 
-// ==========================================
 // View Management
-// ==========================================
 function switchView(view) {
     state.viewMode = view;
     
@@ -218,9 +202,7 @@ function goToToday() {
     renderCalendar();
 }
 
-// ==========================================
 // Render Calendar
-// ==========================================
 function renderCalendar() {
     updatePeriodDisplay();
     
@@ -263,9 +245,7 @@ function updatePeriodDisplay() {
     }
 }
 
-// ==========================================
 // Render Month View
-// ==========================================
 function renderMonthView() {
     const grid = document.getElementById('calendar-grid');
     const year = state.currentDate.getFullYear();
@@ -379,9 +359,7 @@ function renderDayTasks(tasks) {
     }).join('');
 }
 
-// ==========================================
 // Render Week View
-// ==========================================
 function renderWeekView() {
     const grid = document.getElementById('calendar-grid');
     const weekStart = getWeekStart(state.currentDate);
@@ -467,9 +445,7 @@ function renderWeekView() {
     });
 }
 
-// ==========================================
 // Render Day View
-// ==========================================
 function renderDayView() {
     const grid = document.getElementById('calendar-grid');
     const tasks = getTasksForDate(state.currentDate);
@@ -527,9 +503,7 @@ function renderDayView() {
     });
 }
 
-// ==========================================
 // Helper Functions
-// ==========================================
 function getTasksForDate(date) {
     const dateStr = date.toDateString();
     return state.tasks.filter(task => {
@@ -604,23 +578,21 @@ function isSameDay(date1, date2) {
     return date1.toDateString() === date2.toDateString();
 }
 
-// ==========================================
 // SubTasks Management (UI handlers only)
-// ==========================================
 function toggleSubTasksPanel() {
     const checkbox = document.getElementById('task-has-subtasks');
-    const panel = document.getElementById('create-subtasks-panel');
+    const panel = document.getElementById('subTasksSidePanel');
     const wrapper = document.getElementById('create-popup-wrapper');
     
     if (checkbox.checked) {
         panel.style.display = 'flex';
         wrapper.classList.add('with-sidebar');
-        const container = document.getElementById('create-subtasks-list');
-        renderTempSubTasks(container);
+        const container = document.getElementById('tempSubTasksList');
+        renderTempSubTasks(calendarState, container);
     } else {
         panel.style.display = 'none';
         wrapper.classList.remove('with-sidebar');
-        clearTempSubTasks();
+        clearTempSubTasks(calendarState);
     }
 }
 
@@ -631,36 +603,34 @@ function closeSubTasksPanel() {
 }
 
 function handleAddSubTask() {
-    const input = document.getElementById('create-new-subtask-input');
+    const input = document.getElementById('newSubTaskTempInput');
     const text = input.value.trim();
-    
+
     if (!text) return;
-    
-    addTempSubTask(text);
-    
+
+    addTempSubTask(calendarState, text);
+
     input.value = '';
     input.focus();
-    
-    const container = document.getElementById('create-subtasks-list');
-    renderTempSubTasks(container);
+
+    const container = document.getElementById('tempSubTasksList');
+    renderTempSubTasks(calendarState, container);
 }
 
 // Global functions for onclick handlers
 window.toggleTempSubTask = function(subtaskId) {
-    toggleTempSubTask(subtaskId);
-    const container = document.getElementById('create-subtasks-list');
-    renderTempSubTasks(container);
+    toggleTempSubTask(calendarState, subtaskId);
+    const container = document.getElementById('tempSubTasksList');
+    renderTempSubTasks(calendarState, container);
 };
 
 window.deleteTempSubTask = function(subtaskId) {
-    deleteTempSubTask(subtaskId);
-    const container = document.getElementById('create-subtasks-list');
-    renderTempSubTasks(container);
+    deleteTempSubTask(calendarState, subtaskId);
+    const container = document.getElementById('tempSubTasksList');
+    renderTempSubTasks(calendarState, container);
 };
 
-// ==========================================
 // Recurring Management
-// ==========================================
 function toggleRecurringOptions() {
     const checkbox = document.getElementById('task-recurring');
     const options = document.getElementById('recurring-options');
@@ -685,16 +655,21 @@ function toggleEditRecurringOptions() {
 
 function toggleEditSubTasksPanel() {
     const checkbox = document.getElementById('edit-task-has-subtasks');
-    // For now, just show/hide the checkbox state
-    // SubTasks editing in Edit modal can be implemented later
+    const panel = document.getElementById('subTasksSidePanel');
+    const wrapper = document.getElementById('edit-popup-wrapper');
+    
     if (checkbox.checked) {
-        console.log('Edit SubTasks enabled');
+        panel.style.display = 'flex';
+        wrapper.classList.add('with-sidebar');
+        // TODO: Load existing subtasks for editing
+        console.log('Edit SubTasks enabled - TODO: render existing subtasks');
+    } else {
+        panel.style.display = 'none';
+        wrapper.classList.remove('with-sidebar');
     }
 }
 
-// ==========================================
 // Modal Management
-// ==========================================
 function openCreateModal() {
     const modal = document.getElementById('create-task-modal');
     modal.classList.add('active');
@@ -855,9 +830,7 @@ function closeMoreTasksModal() {
     modal.classList.remove('active');
 }
 
-// ==========================================
 // Task Management
-// ==========================================
 async function handleCreateTask(e) {
     e.preventDefault();
     
@@ -896,9 +869,9 @@ async function handleCreateTask(e) {
     
     state.tasks.push(newTask);
     saveTasks();
-    
+
     // Reset
-    clearTempSubTasks();
+    clearTempSubTasks(calendarState);
     closeCreateModal();
     renderCalendar();
 }
@@ -946,9 +919,7 @@ async function handleDeleteTask() {
     renderCalendar();
 }
 
-// ==========================================
 // UI Helpers
-// ==========================================
 function showLoading() {
     document.getElementById('loading').style.display = 'flex';
     document.getElementById('calendar-page').style.display = 'none';
@@ -959,9 +930,7 @@ function hideLoading() {
     document.getElementById('calendar-page').style.display = 'block';
 }
 
-// ==========================================
 // Initialize on DOM Ready
-// ==========================================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

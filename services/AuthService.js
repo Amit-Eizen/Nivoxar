@@ -1,11 +1,7 @@
 // AuthService.js - Centralized Authentication Service
 // Handles all user authentication and authorization logic
 
-// ===== CONSTANTS =====
-const STORAGE_KEYS = {
-    USERS: 'nivoxar_users',
-    CURRENT_USER: 'nivoxar_current_user'
-};
+import { STORAGE_KEYS } from '../utils/StorageKeys.js';
 
 // ===== USER MANAGEMENT =====
 

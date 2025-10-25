@@ -1,5 +1,6 @@
 // TaskUtils.js - Utility functions for task management
 import { getAllCategoriesSync } from '../../services/CategoryService.js';
+import { STORAGE_KEYS } from './StorageKeys.js';
 
 // Priority configuration (merged into one object)
 export const PRIORITIES = {
@@ -17,6 +18,37 @@ export function getPriorityName(priorityNum) {
 // Get priority display name (for UI)
 export function getPriorityDisplayName(priorityNum) {
     return PRIORITIES[priorityNum]?.display || 'Medium';
+}
+
+// ========== LOCALSTORAGE UTILITIES ==========
+
+// Save tasks to localStorage (centralized function)
+export function saveTasksToLocalStorage(tasks) {
+    try {
+        localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
+        console.log('✅ Saved tasks to localStorage');
+        return true;
+    } catch (error) {
+        console.error('❌ Failed to save tasks to localStorage:', error);
+        return false;
+    }
+}
+
+// Load tasks from localStorage (centralized function)
+export function loadTasksFromLocalStorage() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
+        if (saved) {
+            const tasks = JSON.parse(saved);
+            console.log('✅ Loaded tasks from localStorage:', tasks.length);
+            return tasks;
+        }
+        console.log('ℹ️ No tasks found in localStorage');
+        return [];
+    } catch (error) {
+        console.error('❌ Failed to load tasks from localStorage:', error);
+        return [];
+    }
 }
 
 // Format date to readable string

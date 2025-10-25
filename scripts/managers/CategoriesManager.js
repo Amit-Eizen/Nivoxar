@@ -1,10 +1,10 @@
 // Manages all category operations: CRUD, localStorage, rendering
 
-import { getAllCategoriesSync,
+import {
+    getAllCategoriesSync,
     createCategory as createCategoryService,
     updateCategory as updateCategoryService,
     deleteCategory as deleteCategoryService,
-    getCategoryById as getCategoryByIdService,
     CATEGORY_COLORS
 } from '../../services/CategoryService.js';
 
@@ -26,12 +26,12 @@ export async function createCategory(categoryData) {
 // ===== UPDATE CATEGORY =====
 export async function updateCategory(categoryId, updatedData) {
     const updated = await updateCategoryService(categoryId, updatedData);
-    
+
     if (!updated) {
         console.error('Category not found:', categoryId);
         return null;
     }
-    
+
     console.log('✅ Category updated:', updated);
     return updated;
 }
@@ -39,19 +39,14 @@ export async function updateCategory(categoryId, updatedData) {
 // ===== DELETE CATEGORY =====
 export async function deleteCategory(categoryId) {
     const success = await deleteCategoryService(categoryId);
-    
+
     if (!success) {
         console.error('Category not found:', categoryId);
         return false;
     }
-    
+
     console.log('✅ Category deleted:', categoryId);
     return true;
-}
-
-// ===== GET CATEGORY BY ID =====
-export async function getCategoryById(categoryId) {
-    return await getCategoryByIdService(categoryId);
 }
 
 // ===== CENTRALIZED CATEGORY OPTIONS HTML GENERATOR =====

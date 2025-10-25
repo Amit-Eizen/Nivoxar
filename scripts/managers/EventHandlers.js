@@ -74,10 +74,10 @@ function toggleSubTasksPanel(e) {
     if (e.target.checked) {
         openSubTasksSidePanel();
         const container = document.getElementById('tempSubTasksList');
-        if (container) renderTempSubTasks(container);
+        if (container) renderTempSubTasks(dashboardState, container);
     } else {
         closeSubTasksSidePanel();
-        clearTempSubTasks();
+        clearTempSubTasks(dashboardState);
     }
 }
 
@@ -90,15 +90,15 @@ function handlePanelClose() {
 function handleAddTempSubTask() {
     const input = document.getElementById('newSubTaskTempInput');
     const title = input?.value.trim();
-    
+
     if (!title) return;
-    
-    addTempSubTask(title);
+
+    addTempSubTask(dashboardState, title);
     input.value = '';
     input.focus();
-    
+
     const container = document.getElementById('tempSubTasksList');
-    if (container) renderTempSubTasks(container);
+    if (container) renderTempSubTasks(dashboardState, container);
 }
 
 function handleTempSubTaskKeypress(e) {
@@ -143,8 +143,8 @@ function handleFormSubmit(e) {
     } else {
         createTask(taskData);
     }
-    
-    clearTempSubTasks();
+
+    clearTempSubTasks(dashboardState);
     closeSubTasksSidePanel();
     closeTaskPopup();
     updateDashboard();
@@ -262,21 +262,21 @@ function handleClick(e) {
                     document.getElementById('addSubTaskBtn').addEventListener('click', () => {
                         const title = input?.value.trim();
                         if (!title) return;
-                        
-                        addSubTask(taskId, title);
+
+                        addSubTask(dashboardState, taskId, title);
                         input.value = '';
                         input.focus();
-                        
+
                         const updatedTask = getTaskById(taskId);
                         if (updatedTask && container) {
                             renderSubTasks(updatedTask, container);
                             updateSubTasksPopupInfo(updatedTask);
                         }
-                        
+
                         updateDashboard();
                     });
                 }
-                
+
                 if (input) {
                     input.replaceWith(input.cloneNode(true));
                     document.getElementById('newSubTaskInput').addEventListener('keypress', (e) => {
@@ -284,17 +284,17 @@ function handleClick(e) {
                             e.preventDefault();
                             const title = e.target.value.trim();
                             if (!title) return;
-                            
-                            addSubTask(taskId, title);
+
+                            addSubTask(dashboardState, taskId, title);
                             e.target.value = '';
                             e.target.focus();
-                            
+
                             const updatedTask = getTaskById(taskId);
                             if (updatedTask && container) {
                                 renderSubTasks(updatedTask, container);
                                 updateSubTasksPopupInfo(updatedTask);
                             }
-                            
+
                             updateDashboard();
                         }
                     });
@@ -374,15 +374,15 @@ function handleClick(e) {
             const newText = input.value.trim();
             if (newText && newText !== currentText) {
                 if (taskId) {
-                    editSubTask(taskId, subtaskId, newText);
+                    editSubTask(dashboardState, taskId, subtaskId, newText);
                     const task = getTaskById(taskId);
                     const container = document.getElementById('subTasksList');
                     if (task && container) renderSubTasks(task, container);
                     updateDashboard();
                 } else {
-                    editTempSubTask(subtaskId, newText);
+                    editTempSubTask(dashboardState, subtaskId, newText);
                     const container = document.getElementById('tempSubTasksList');
-                    if (container) renderTempSubTasks(container);
+                    if (container) renderTempSubTasks(dashboardState, container);
                 }
             } else {
                 const span = document.createElement('span');
@@ -427,18 +427,18 @@ function handleClick(e) {
         const subtaskId = parseInt(item.dataset.subtaskId);
 
         if (taskId) {
-            deleteSubTask(taskId, subtaskId);
+            deleteSubTask(dashboardState, taskId, subtaskId);
             const task = getTaskById(taskId);
             const container = document.getElementById('subTasksList');
             if (task && container) {
-                renderSubTasks(task, container); 
+                renderSubTasks(task, container);
                 updateSubTasksPopupInfo(task);
             }
             updateDashboard();
         } else {
-            deleteTempSubTask(subtaskId);
+            deleteTempSubTask(dashboardState, subtaskId);
             const container = document.getElementById('tempSubTasksList');
-            if (container) renderTempSubTasks(container);
+            if (container) renderTempSubTasks(dashboardState, container);
         }
         return;
     }
@@ -467,11 +467,11 @@ function handleChange(e) {
         
         if (taskId) {
             // ✅ Toggle the state
-            toggleSubTask(taskId, subtaskId);
-            
+            toggleSubTask(dashboardState, taskId, subtaskId);
+
             const task = getTaskById(taskId);
             const subTask = task?.subTasks?.find(st => st.id === subtaskId);
-            
+
             if (subTask) {
                 if (subTask.completed) {
                     item.classList.add('completed');
@@ -480,7 +480,7 @@ function handleChange(e) {
                     item.classList.remove('completed');
                     e.target.checked = false;
                 }
-                
+
                 // Update counter
                 const completedEl = document.getElementById('subtasksCompleted');
                 if (completedEl && task.subTasks) {
@@ -488,12 +488,12 @@ function handleChange(e) {
                     completedEl.textContent = completed;
                 }
             }
-            
+
             updateDashboard();
         } else {
             // Temp subtask
-            toggleTempSubTask(subtaskId);
-            
+            toggleTempSubTask(dashboardState, subtaskId);
+
             const subTask = dashboardState.tempSubTasks.find(st => st.id === subtaskId);
             if (subTask) {
                 if (subTask.completed) {
@@ -504,9 +504,9 @@ function handleChange(e) {
                     e.target.checked = false;
                 }
             }
-            
+
             const container = document.getElementById('tempSubTasksList');
-            if (container) renderTempSubTasks(container);
+            if (container) renderTempSubTasks(dashboardState, container);
         }
         return;
     }
@@ -561,7 +561,7 @@ function handleSubtaskEdit(e, taskId, container) {
     const save = () => {
         const newText = input.value.trim();
         if (newText && newText !== currentText) {
-            editSubTask(taskId, subtaskId, newText);
+            editSubTask(dashboardState, taskId, subtaskId, newText);
             const task = getTaskById(taskId);
             if (task && container) {
                 renderSubTasks(task, container);
@@ -604,10 +604,10 @@ function handleSubtaskEdit(e, taskId, container) {
 function handleSubtaskDelete(e, taskId, container) {
     const item = e.target.closest('.subtask-item');
     if (!item) return;
-    
+
     const subtaskId = parseInt(item.dataset.subtaskId);
-    deleteSubTask(taskId, subtaskId);
-    
+    deleteSubTask(dashboardState, taskId, subtaskId);
+
     const task = getTaskById(taskId);
     if (task && container) {
         renderSubTasks(task, container);
@@ -618,12 +618,12 @@ function handleSubtaskDelete(e, taskId, container) {
 
 function handleSubtaskCheckbox(e, taskId, container) {
     e.stopPropagation();
-    
+
     const item = e.target.closest('.subtask-item');
     if (!item) return;
-    
+
     const subtaskId = parseInt(item.dataset.subtaskId);
-    toggleSubTask(taskId, subtaskId);
+    toggleSubTask(dashboardState, taskId, subtaskId);
     
     const task = getTaskById(taskId);
     const subTask = task?.subTasks?.find(st => st.id === subtaskId);

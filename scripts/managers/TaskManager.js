@@ -1,38 +1,20 @@
 import { dashboardState, updateDashboard } from '../DashboardPage.js';
-import { createTaskElement, isTaskOverdue, calculateAnalytics } from '../../utils/TaskUtils.js';
+import {
+    createTaskElement,
+    isTaskOverdue,
+    calculateAnalytics,
+    saveTasksToLocalStorage,
+    loadTasksFromLocalStorage
+} from '../../utils/TaskUtils.js';
 import { incrementTaskCount, decrementTaskCount } from '../../services/CategoryService.js';
 import { filterByCategory } from '../../services/FilterService.js';
 
 // Initialize Task Manager
 export function initTaskManager() {
     console.log('✅ Task Manager initialized');
-    loadTasksFromLocalStorage();
-}
-
-// Load tasks from localStorage
-function loadTasksFromLocalStorage() {
-    const saved = localStorage.getItem('nivoxar_tasks');
-    if (saved) {
-        try {
-            dashboardState.tasks = JSON.parse(saved);
-            dashboardState.filteredTasks = [...dashboardState.tasks];
-            console.log('✅ Loaded tasks from localStorage:', dashboardState.tasks.length);
-        } catch (error) {
-            console.error('❌ Failed to parse tasks from localStorage:', error);
-            dashboardState.tasks = [];
-            dashboardState.filteredTasks = [];
-        }
-    }
-}
-
-// Save tasks to localStorage
-function saveTasksToLocalStorage() {
-    try {
-        localStorage.setItem('nivoxar_tasks', JSON.stringify(dashboardState.tasks));
-        console.log('✅ Saved tasks to localStorage');
-    } catch (error) {
-        console.error('❌ Failed to save tasks to localStorage:', error);
-    }
+    const tasks = loadTasksFromLocalStorage();
+    dashboardState.tasks = tasks;
+    dashboardState.filteredTasks = [...tasks];
 }
 
 // Create new task
@@ -53,13 +35,13 @@ export function createTask(taskData) {
     
     dashboardState.tasks.unshift(newTask);
     dashboardState.filteredTasks = [...dashboardState.tasks];
-    saveTasksToLocalStorage();
-    
+    saveTasksToLocalStorage(dashboardState.tasks);
+
     // Update category task count
     if (newTask.category) {
         incrementTaskCount(newTask.category);
     }
-    
+
     console.log('✅ Task created:', newTask);
     return newTask;
 }
@@ -80,14 +62,14 @@ export function updateTask(taskId, updates) {
     };
     
     dashboardState.filteredTasks = [...dashboardState.tasks];
-    saveTasksToLocalStorage();
-    
+    saveTasksToLocalStorage(dashboardState.tasks);
+
     // Update category task counts if category changed
     if (oldCategory !== newCategory) {
         if (oldCategory) decrementTaskCount(oldCategory);
         if (newCategory) incrementTaskCount(newCategory);
     }
-    
+
     console.log('✅ Task updated:', taskId);
 }
 
@@ -95,19 +77,19 @@ export function updateTask(taskId, updates) {
 export function deleteTask(taskId) {
     const taskIndex = dashboardState.tasks.findIndex(t => t.id === taskId);
     if (taskIndex === -1) return;
-    
+
     const task = dashboardState.tasks[taskIndex];
     const categoryId = task.category;
-    
+
     dashboardState.tasks.splice(taskIndex, 1);
     dashboardState.filteredTasks = [...dashboardState.tasks];
-    saveTasksToLocalStorage();
-    
+    saveTasksToLocalStorage(dashboardState.tasks);
+
     // Update category task count
     if (categoryId) {
         decrementTaskCount(categoryId);
     }
-    
+
     console.log('✅ Task deleted:', taskId);
 }
 
@@ -115,11 +97,11 @@ export function deleteTask(taskId) {
 export function toggleTaskCompletion(taskId) {
     const task = dashboardState.tasks.find(t => t.id === taskId);
     if (!task) return;
-    
+
     task.completed = !task.completed;
     task.completedAt = task.completed ? new Date().toISOString() : null;
-    
-    saveTasksToLocalStorage();
+
+    saveTasksToLocalStorage(dashboardState.tasks);
     console.log('✅ Task toggled:', taskId, task.completed);
 }
 

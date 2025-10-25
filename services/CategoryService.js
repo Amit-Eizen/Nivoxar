@@ -2,11 +2,13 @@
 // Central service for category management
 // Supports both localStorage (current) and API (future)
 
+import { STORAGE_KEYS } from '../utils/StorageKeys.js';
+
 // ===== CONFIGURATION =====
 const CONFIG = {
     useAPI: false, // Set to true when API is ready
     apiBaseURL: '/api/categories', // Future API endpoint
-    storageKey: 'nivoxar_categories'
+    storageKey: STORAGE_KEYS.CATEGORIES
 };
 
 // ===== DEFAULT CATEGORIES =====
