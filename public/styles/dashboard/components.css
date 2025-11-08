@@ -4,21 +4,10 @@
 .dashboard-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: flex-end;
     margin-bottom: 40px;
-    padding: 30px 40px;
-    background: var(--bg-card);
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-    backdrop-filter: blur(20px);
-    box-shadow: var(--shadow-md);
-}
-
-.header-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    width: 100%;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
 }
 
 .header-left {

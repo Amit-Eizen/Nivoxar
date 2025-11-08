@@ -1,5 +1,5 @@
 import { dashboardState } from '../DashboardPage.js';
-import { renderTempSubTasks } from './SubTasksManager.js';
+import { renderTempSubTasks, renderSubTasks } from './SubTasksManager.js';
 import { getCategoryOptionsHTML } from '../../services/CategoryService.js';
 
 
@@ -336,15 +336,16 @@ export function closeTaskPopup() {
 export function openSubTasksPopup(task) {
     const popup = document.getElementById('subTasksPopup');
     if (!popup) return;
-    
+
     popup.dataset.taskId = task.id;
-    
+
     const titleEl = document.getElementById('parentTaskTitle');
     const countEl = document.getElementById('subtasksCount');
     const completedEl = document.getElementById('subtasksCompleted');
-    
+    const listContainer = document.getElementById('subTasksList');
+
     if (titleEl) titleEl.textContent = task.title;
-    
+
     if (task.subTasks && task.subTasks.length > 0) {
         const completed = task.subTasks.filter(st => st.completed).length;
         if (countEl) countEl.textContent = task.subTasks.length;
@@ -353,7 +354,12 @@ export function openSubTasksPopup(task) {
         if (countEl) countEl.textContent = '0';
         if (completedEl) completedEl.textContent = '0';
     }
-    
+
+    // Render the subtasks list with current state
+    if (listContainer) {
+        renderSubTasks(task, listContainer);
+    }
+
     popup.classList.add('active');
     document.body.style.overflow = 'hidden';
 }

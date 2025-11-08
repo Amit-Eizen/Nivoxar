@@ -10,67 +10,6 @@ body {
     position: relative;
 }
 
-/* Background Effects */
-.background-shapes {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    pointer-events: none;
-}
-
-.shape {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.1;
-    animation: dashFloat 20s infinite ease-in-out;
-}
-
-.shape-1 {
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, var(--color-primary), var(--color-primary-dark));
-    top: 10%;
-    left: 10%;
-    animation-delay: 0s;
-}
-
-.shape-2 {
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, var(--color-secondary), #1d4ed8);
-    bottom: 20%;
-    right: 10%;
-    animation-delay: -10s;
-}
-
-.shape-3 {
-    width: 150px;
-    height: 150px;
-    background: radial-gradient(circle, #8b5cf6, #7c3aed);
-    top: 60%;
-    right: 30%;
-    animation-delay: -5s;
-}
-
-.grid-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -1;
-    pointer-events: none;
-    background-image: 
-        linear-gradient(rgba(16, 185, 129, 0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(16, 185, 129, 0.02) 1px, transparent 1px);
-    background-size: 80px 80px;
-    opacity: 0.3;
-}
-
 /* Loading State */
 .loading-state {
     display: flex;

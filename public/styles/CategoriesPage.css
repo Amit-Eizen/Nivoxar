@@ -47,78 +47,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Background Effects */
-.categories-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -1;
-  pointer-events: none;
-}
-
-.categories-shapes {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-}
-
-.cat-shape {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  opacity: 0.08;
-  animation: catFloat 25s infinite ease-in-out;
-}
-
-.cat-shape-1 {
-  width: 280px;
-  height: 280px;
-  background: radial-gradient(circle, #8b5cf6, #7c3aed);
-  top: 15%;
-  right: 10%;
-  animation-delay: 0s;
-}
-
-.cat-shape-2 {
-  width: 200px;
-  height: 200px;
-  background: radial-gradient(circle, #f59e0b, #d97706);
-  bottom: 25%;
-  left: 15%;
-  animation-delay: -8s;
-}
-
-.cat-shape-3 {
-  width: 160px;
-  height: 160px;
-  background: radial-gradient(circle, #06b6d4, #0891b2);
-  top: 50%;
-  left: 70%;
-  animation-delay: -15s;
-}
-
-@keyframes catFloat {
-  0%, 100% { transform: translateY(0px) translateX(0px) scale(1) rotate(0deg); }
-  25% { transform: translateY(-25px) translateX(15px) scale(1.05) rotate(90deg); }
-  50% { transform: translateY(15px) translateX(-20px) scale(0.95) rotate(180deg); }
-  75% { transform: translateY(-10px) translateX(25px) scale(1.02) rotate(270deg); }
-}
-
-.categories-grid-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    linear-gradient(rgba(139, 92, 246, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(139, 92, 246, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
-  opacity: 0.4;
-}
-
 /* Loading State */
 .categories-loading {
   display: flex;
@@ -159,17 +87,10 @@ body {
 .categories-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: flex-end;
   margin-bottom: 40px;
-  padding: 30px 40px;
-  background: rgba(30, 41, 59, 0.8);
-  border-radius: 20px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  backdrop-filter: blur(20px);
-  box-shadow: 
-    0 20px 40px rgba(0, 0, 0, 0.3),
-    0 0 80px rgba(139, 92, 246, 0.05),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding-bottom: 20px;
+  border-bottom: 2px solid rgba(139, 92, 246, 0.2);
 }
 
 .categories-title {

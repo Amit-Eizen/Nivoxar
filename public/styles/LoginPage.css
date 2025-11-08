@@ -454,12 +454,12 @@ body {
 }
 
 /* FORM */
-.auth-form {
+/* .auth-form { */
   /* display: flex;
   flex-direction: column;
   gap: 200px;
   background-color: #047857; */
-}
+/* } */
 
 .form-group {
   position: relative;

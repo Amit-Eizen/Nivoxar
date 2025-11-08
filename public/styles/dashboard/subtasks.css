@@ -81,6 +81,7 @@
     display: flex;
     align-items: center;
     flex-shrink: 0;
+    z-index: 30;
 }
 
 .subtask-checkbox input[type="checkbox"] {
@@ -89,6 +90,8 @@
     cursor: pointer;
     width: 0;
     height: 0;
+    z-index: 35;
+    pointer-events: all;
 }
 
 .subtask-checkbox .checkmark {
@@ -101,6 +104,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: all;
 }
 
 .subtask-checkbox:hover .checkmark {
