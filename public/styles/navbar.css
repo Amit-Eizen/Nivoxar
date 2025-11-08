@@ -59,14 +59,32 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 20px;
+    padding: 10px 12px;
     border-radius: var(--radius-md);
     color: var(--text-secondary);
     text-decoration: none;
     font-weight: 600;
     font-size: 15px;
-    transition: var(--transition-normal);
+    transition: all 0.3s ease;
     position: relative;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.navbar-menu a span {
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.navbar-menu a.active {
+    padding: 10px 20px;
+}
+
+.navbar-menu a.active span {
+    max-width: 150px;
+    opacity: 1;
 }
 
 .navbar-menu a:hover {
