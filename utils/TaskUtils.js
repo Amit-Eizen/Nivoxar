@@ -1,5 +1,6 @@
 // TaskUtils.js - Utility functions for task management
 import { getAllCategoriesSync } from '../../services/CategoryService.js';
+import { isTaskShared } from '../../services/SharedTasksService.js';
 import { STORAGE_KEYS } from './StorageKeys.js';
 
 // Priority configuration (merged into one object)
@@ -244,7 +245,7 @@ function createSubTasksProgress(task) {
 function createTaskActions(task) {
     const actions = document.createElement('div');
     actions.className = 'task-actions';
-    
+
     // SubTasks button
     if (task.subTasks?.length > 0) {
         const completedCount = task.subTasks.filter(st => st.completed).length;
@@ -257,21 +258,29 @@ function createTaskActions(task) {
         `;
         actions.appendChild(subtasksBtn);
     }
-    
+
+    // Share button
+    const shareBtn = document.createElement('button');
+    const isShared = isTaskShared(task.id);
+    shareBtn.className = `task-action-btn task-share ${isShared ? 'task-shared-active' : ''}`;
+    shareBtn.title = isShared ? 'Task is Shared' : 'Share Task';
+    shareBtn.innerHTML = '<i class="fas fa-share-nodes"></i>';
+    actions.appendChild(shareBtn);
+
     // Edit button
     const editBtn = document.createElement('button');
     editBtn.className = 'task-action-btn task-edit';
     editBtn.title = 'Edit';
     editBtn.innerHTML = '<i class="fas fa-edit"></i>';
     actions.appendChild(editBtn);
-    
+
     // Delete button
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'task-action-btn task-delete';
     deleteBtn.title = 'Delete';
     deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
     actions.appendChild(deleteBtn);
-    
+
     return actions;
 }
 

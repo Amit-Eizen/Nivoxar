@@ -421,6 +421,28 @@
     background: rgba(239, 68, 68, 0.2);
 }
 
+/* Share Button */
+.task-action-btn.task-share {
+    background: rgba(100, 116, 139, 0.1);
+    color: #64748b;
+    border: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.task-action-btn.task-share:hover {
+    background: rgba(100, 116, 139, 0.2);
+}
+
+/* Share Button - Active (Task is Shared) */
+.task-action-btn.task-share.task-shared-active {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--color-primary);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.task-action-btn.task-share.task-shared-active:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
 .subtasks-badge,
 .subtasks-count {
     position: absolute;

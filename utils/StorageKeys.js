@@ -6,5 +6,6 @@ export const STORAGE_KEYS = {
     USERS: 'nivoxar_users',
     CURRENT_USER: 'nivoxar_current_user',
     FRIENDS: 'nivoxar_friends',
-    NOTIFICATIONS: 'nivoxar_notifications'
+    NOTIFICATIONS: 'nivoxar_notifications',
+    SHARED_TASKS: 'nivoxar_shared_tasks'
 };

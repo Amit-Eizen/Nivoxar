@@ -37,6 +37,12 @@
     gap: 24px;
 }
 
+/* Base Popup Content */
+.popup-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
 /* Main Popup Content (Left) */
 .popup-content.popup-main {
     background: var(--bg-card);

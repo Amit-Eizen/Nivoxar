@@ -32,6 +32,12 @@ export function createNavbar() {
                         </a>
                     </li>
                     <li>
+                        <a href="/views/SharedTasksPage.html" class="${currentPage === 'SharedTasksPage.html' ? 'active' : ''}">
+                            <i class="fas fa-share-nodes"></i>
+                            <span>Shared Tasks</span>
+                        </a>
+                    </li>
+                    <li>
                         <a href="/views/CategoriesPage.html" class="${currentPage === 'CategoriesPage.html' ? 'active' : ''}">
                             <i class="fas fa-folder"></i>
                             <span>Categories</span>
