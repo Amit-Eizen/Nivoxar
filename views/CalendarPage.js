@@ -2,7 +2,7 @@ import { getAllCategoriesSync, getCategoryOptionsHTML } from '../services/Catego
 import { getPriorityName, formatDate, formatTime, saveTasksToLocalStorage, loadTasksFromLocalStorage } from '../utils/TaskUtils.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
-import { addTempSubTask, toggleTempSubTask, deleteTempSubTask, renderTempSubTasks, clearTempSubTasks } from './managers/SubTasksManager.js';
+import { addTempSubTask, toggleTempSubTask, deleteTempSubTask, renderTempSubTasks, clearTempSubTasks } from '../scripts/managers/SubTasksManager.js';
 
 // State Management
 export const calendarState = {
@@ -18,30 +18,32 @@ export const calendarState = {
 const state = calendarState; // Keep backward compatibility
 
 // Initialize Calendar Page
-async function init() {
+async function initializeCalendar() {
     try {
         // Check authentication
         const user = requireAuth();
         if (!user) return;
 
-        // Initialize Navbar
-        initNavbar();
-        
+        // Only init navbar in MPA mode (SPA mode handles navbar globally)
+        if (!window.__SPA_MODE__) {
+            initNavbar();
+        }
+
         // Show loading
         showLoading();
-        
+
         // Load data
         await loadCalendarData();
-        
+
         // Setup event listeners
         setupEventListeners();
-        
+
         // Render calendar
         renderCalendar();
-        
+
         // Hide loading
         hideLoading();
-        
+
     } catch (error) {
         console.error('Failed to initialize calendar:', error);
         hideLoading();
@@ -1052,9 +1054,440 @@ function hideLoading() {
     document.getElementById('calendar-page').style.display = 'block';
 }
 
-// Initialize on DOM Ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
+// For standalone HTML page (MPA mode)
+if (!window.__SPA_MODE__) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeCalendar);
+    } else {
+        initializeCalendar();
+    }
+}
+
+// ===== SPA MODE =====
+
+/**
+ * Load Calendar page for SPA
+ */
+export async function loadCalendarPage() {
+    console.log('📄 Loading Calendar Page...');
+
+    // Load CSS
+    loadPageCSS();
+
+    // Get app container
+    const app = document.getElementById('app');
+    if (!app) {
+        console.error('App container not found');
+        return;
+    }
+
+    // Inject HTML
+    app.innerHTML = getPageHTML();
+
+    // Initialize Calendar
+    initializeCalendar();
+}
+
+/**
+ * Load CSS for Calendar page
+ */
+function loadPageCSS() {
+    const cssFiles = [
+        '/public/styles/DashboardPage.css',
+        '/public/styles/CalendarPage.css'
+    ];
+
+    // Remove existing page-specific stylesheets
+    document.querySelectorAll('link[data-page-style]').forEach(link => link.remove());
+
+    // Load new stylesheets
+    cssFiles.forEach(href => {
+        const existing = document.querySelector(`link[href="${href}"]`);
+        if (existing) return;
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-page-style', 'true');
+        document.head.appendChild(link);
+    });
+}
+
+/**
+ * Get Calendar HTML
+ */
+function getPageHTML() {
+    return `
+        <!-- Loading State -->
+        <div id="loading" class="loading-state" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading Calendar...</p>
+        </div>
+
+        <!-- Main Calendar Page -->
+        <div id="calendar-page" class="calendar-page">
+            <div class="calendar-container">
+                <!-- Header -->
+                <div class="calendar-header">
+                    <div class="header-left">
+                        <h1 class="calendar-title">
+                            <i class="fas fa-calendar-alt"></i>
+                            Calendar
+                        </h1>
+                        <p class="calendar-subtitle">View and manage your tasks by date</p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="btn btn-primary" id="create-task-btn">
+                            <i class="fas fa-plus"></i>
+                            <span>New Task</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Calendar Controls -->
+                <div class="calendar-controls">
+                    <div class="view-switcher">
+                        <button class="view-btn active" data-view="month">
+                            <i class="fas fa-calendar"></i>
+                            <span>Month</span>
+                        </button>
+                        <button class="view-btn" data-view="week">
+                            <i class="fas fa-calendar-week"></i>
+                            <span>Week</span>
+                        </button>
+                        <button class="view-btn" data-view="day">
+                            <i class="fas fa-calendar-day"></i>
+                            <span>Day</span>
+                        </button>
+                    </div>
+
+                    <div class="date-navigation">
+                        <button class="nav-btn" id="prev-period">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <h2 class="current-period" id="current-period">Loading...</h2>
+                        <button class="nav-btn" id="next-period">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                        <button class="btn-today" id="today-btn">
+                            <i class="fas fa-calendar-check"></i>
+                            Today
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Calendar Grid -->
+                <div id="calendar-grid" class="calendar-grid">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        ${getModalsHTML()}
+    `;
+}
+
+/**
+ * Get all modals HTML (separated for readability)
+ */
+function getModalsHTML() {
+    return `
+        <!-- Create Task Modal -->
+        <div id="create-task-modal" class="modal-overlay" style="display: none;">
+            <div class="popup-wrapper" id="create-popup-wrapper">
+                <div class="popup-content popup-main">
+                    <div class="popup-header">
+                        <h2>
+                            <i class="fas fa-plus-circle"></i>
+                            Create New Task
+                        </h2>
+                        <button class="popup-close" id="close-create-modal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="popup-body">
+                        <form id="create-task-form" class="task-form">
+                            <div class="form-group">
+                                <label class="form-label required">Title</label>
+                                <input type="text" id="task-title" class="form-input" placeholder="Task title" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Description</label>
+                                <textarea id="task-description" class="form-textarea" placeholder="Task description" rows="3"></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Category</label>
+                                    <select id="task-category" class="form-select"></select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label required">Priority</label>
+                                    <select id="task-priority" class="form-select" required>
+                                        <option value="1">🟢 Low</option>
+                                        <option value="2" selected>🟡 Medium</option>
+                                        <option value="3">🟠 High</option>
+                                        <option value="4">🔴 Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Due Date</label>
+                                    <input type="date" id="task-due-date" class="form-input">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Due Time</label>
+                                    <input type="time" id="task-due-time" class="form-input">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="task-has-subtasks">
+                                    <span class="checkbox-custom"></span>
+                                    <span><i class="fas fa-tasks"></i> Add SubTasks</span>
+                                </label>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="task-recurring">
+                                    <span class="checkbox-custom"></span>
+                                    <span><i class="fas fa-redo"></i> Recurring Task</span>
+                                </label>
+                            </div>
+
+                            <div id="recurring-options" class="recurring-options" style="display: none;">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Frequency</label>
+                                        <select id="recurring-frequency" class="form-select">
+                                            <option value="daily">Daily</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">End Date</label>
+                                        <input type="date" id="recurring-end-date" class="form-input">
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="popup-footer">
+                        <button type="button" class="btn btn-secondary" id="cancel-create">Cancel</button>
+                        <button type="submit" form="create-task-form" class="btn btn-primary">
+                            <i class="fas fa-check"></i>
+                            Create Task
+                        </button>
+                    </div>
+                </div>
+
+                <div class="popup-content popup-side" id="subTasksSidePanel" style="display: none;">
+                    <div class="side-panel-header">
+                        <h3><i class="fas fa-list-check"></i> SubTasks Manager</h3>
+                        <button class="panel-close" id="closeSubTasksSidePanel">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="side-panel-body">
+                        <div class="panel-info">
+                            <i class="fas fa-info-circle"></i>
+                            Add subtasks to break down your main task into smaller, manageable steps.
+                        </div>
+
+                        <div class="subtasks-manager">
+                            <div class="subtask-input-group">
+                                <input type="text" id="newSubTaskTempInput" class="subtask-input" placeholder="Add new subtask...">
+                                <button type="button" class="subtask-add-btn" id="addSubTaskTempBtn">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+
+                            <div class="temp-subtasks-list" id="tempSubTasksList">
+                                <div class="subtasks-empty">No subtasks added yet.</div>
+                            </div>
+
+                            <div class="subtasks-summary" id="tempSubTasksSummary">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="summary-text">No subtasks yet</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Task Modal -->
+        <div id="edit-task-modal" class="modal-overlay" style="display: none;">
+            <div class="popup-wrapper" id="edit-popup-wrapper">
+                <div class="popup-content popup-main">
+                    <div class="popup-header">
+                        <h2><i class="fas fa-edit"></i> Edit Task</h2>
+                        <button class="popup-close" id="close-edit-modal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="popup-body">
+                        <form id="edit-task-form" class="task-form">
+                            <input type="hidden" id="edit-task-id">
+
+                            <div class="form-group">
+                                <label class="form-label required">Title</label>
+                                <input type="text" id="edit-task-title" class="form-input" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Description</label>
+                                <textarea id="edit-task-description" class="form-textarea" rows="3"></textarea>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Category</label>
+                                    <select id="edit-task-category" class="form-select"></select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Priority</label>
+                                    <select id="edit-task-priority" class="form-select">
+                                        <option value="1">🟢 Low</option>
+                                        <option value="2">🟡 Medium</option>
+                                        <option value="3">🟠 High</option>
+                                        <option value="4">🔴 Urgent</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label class="form-label">Due Date</label>
+                                    <input type="date" id="edit-task-due-date" class="form-input">
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="form-label">Due Time</label>
+                                    <input type="time" id="edit-task-due-time" class="form-input">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="edit-task-has-subtasks">
+                                    <span class="checkbox-custom"></span>
+                                    <span><i class="fas fa-tasks"></i> Add SubTasks</span>
+                                </label>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="edit-task-recurring">
+                                    <span class="checkbox-custom"></span>
+                                    <span><i class="fas fa-redo"></i> Recurring Task</span>
+                                </label>
+                            </div>
+
+                            <div id="edit-recurring-options" class="recurring-options" style="display: none;">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label class="form-label">Frequency</label>
+                                        <select id="edit-recurring-frequency" class="form-select">
+                                            <option value="daily">Daily</option>
+                                            <option value="weekly">Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">End Date</label>
+                                        <input type="date" id="edit-recurring-end-date" class="form-input">
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="popup-footer">
+                        <button type="button" class="btn btn-secondary" id="cancel-edit">Cancel</button>
+                        <button type="button" class="btn btn-danger" id="delete-task">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                        <button type="submit" form="edit-task-form" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </div>
+
+                <div class="popup-content popup-side" id="editSubTasksSidePanel" style="display: none;">
+                    <div class="side-panel-header">
+                        <h3><i class="fas fa-list-check"></i> SubTasks Manager</h3>
+                        <button class="panel-close" id="closeEditSubTasksSidePanel">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="side-panel-body">
+                        <div class="panel-info">
+                            <i class="fas fa-info-circle"></i>
+                            Add subtasks to break down your main task into smaller, manageable steps.
+                        </div>
+
+                        <div class="subtasks-manager">
+                            <div class="subtask-input-group">
+                                <input type="text" id="editNewSubTaskInput" class="subtask-input" placeholder="Add new subtask...">
+                                <button type="button" class="subtask-add-btn" id="editAddSubTaskBtn">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+
+                            <div class="temp-subtasks-list" id="editSubTasksList">
+                                <div class="subtasks-empty">No subtasks added yet.</div>
+                            </div>
+
+                            <div class="subtasks-summary" id="editSubTasksSummary">
+                                <i class="fas fa-info-circle"></i>
+                                <span class="summary-text">No subtasks yet</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- More Tasks Modal -->
+        <div id="more-tasks-modal" class="modal-overlay" style="display: none;">
+            <div class="popup-wrapper">
+                <div class="popup-content popup-subtasks">
+                    <div class="popup-header">
+                        <h2>
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="more-tasks-date-title">Tasks</span>
+                        </h2>
+                        <button class="popup-close" id="close-more-tasks-modal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <div class="popup-body">
+                        <div id="more-tasks-list" class="subtasks-list"></div>
+                    </div>
+
+                    <div class="popup-footer">
+                        <button type="button" class="btn btn-secondary" id="cancel-more-tasks">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }

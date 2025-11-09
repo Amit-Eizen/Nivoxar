@@ -1,4 +1,4 @@
-import { dashboardState } from '../DashboardPage.js';
+import { dashboardState } from '../../views/DashboardPage.js';
 import { renderTempSubTasks, renderSubTasks } from './SubTasksManager.js';
 import { getCategoryOptionsHTML } from '../../services/CategoryService.js';
 

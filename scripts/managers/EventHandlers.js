@@ -1,4 +1,4 @@
-import { dashboardState, updateDashboard } from '../DashboardPage.js';
+import { dashboardState, updateDashboard } from '../../views/DashboardPage.js';
 import { createTask, updateTask, deleteTask, toggleTaskCompletion, getTaskById, changePage } from './TaskManager.js';
 import { addSubTask, deleteSubTask, toggleSubTask, editSubTask, renderSubTasks, addTempSubTask, deleteTempSubTask, toggleTempSubTask, editTempSubTask, renderTempSubTasks, clearTempSubTasks } from './SubTasksManager.js';
 import { openTaskPopup, closeTaskPopup, openSubTasksPopup, closeSubTasksPopup, openSubTasksSidePanel, closeSubTasksSidePanel } from './PopupFactory.js';
