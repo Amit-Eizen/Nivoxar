@@ -22,7 +22,7 @@ import {
     clearAllNotifications,
     notifyFriendAccepted
 } from '../services/NotificationsService.js';
-import { initNavbar } from './components/Navbar.js';
+import { initNavbar } from '../scripts/components/Navbar.js';
 
 // ===== STATE =====
 const profileState = {
@@ -42,8 +42,10 @@ function initializeProfilePage() {
 
     profileState.currentUser = user;
 
-    // Load navbar
-    initNavbar();
+    // Only init navbar in MPA mode (SPA mode handles navbar globally)
+    if (!window.__SPA_MODE__) {
+        initNavbar();
+    }
 
     // Load data
     loadUserInfo();
@@ -533,4 +535,274 @@ window.profilePage = {
 };
 
 // ===== START =====
-document.addEventListener('DOMContentLoaded', initializeProfilePage);
+// For standalone HTML page (MPA mode)
+if (!window.__SPA_MODE__) {
+    document.addEventListener('DOMContentLoaded', initializeProfilePage);
+}
+
+// ===== SPA MODE =====
+
+/**
+ * Load Profile page for SPA
+ */
+export async function loadProfilePage() {
+    console.log('📄 Loading Profile Page...');
+
+    // Load CSS
+    loadPageCSS();
+
+    // Get app container
+    const app = document.getElementById('app');
+    if (!app) {
+        console.error('App container not found');
+        return;
+    }
+
+    // Inject HTML
+    app.innerHTML = getPageHTML();
+
+    // Initialize Profile
+    initializeProfilePage();
+}
+
+/**
+ * Load CSS for Profile page
+ */
+function loadPageCSS() {
+    const cssFiles = [
+        '/public/styles/DashboardPage.css',
+        '/public/styles/ProfilePage.css'
+    ];
+
+    // Remove existing page-specific stylesheets
+    document.querySelectorAll('link[data-page-style]').forEach(link => link.remove());
+
+    // Load new stylesheets
+    cssFiles.forEach(href => {
+        const existing = document.querySelector(`link[href="${href}"]`);
+        if (existing) return;
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-page-style', 'true');
+        document.head.appendChild(link);
+    });
+}
+
+/**
+ * Get Profile HTML
+ */
+function getPageHTML() {
+    return `
+        <!-- Loading State -->
+        <div id="loading" class="loading-state" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading Profile...</p>
+        </div>
+
+        <!-- Main Profile Page -->
+        <div id="profile-page" class="profile-page">
+            <div class="profile-container">
+                <!-- Header -->
+                <div class="profile-header">
+                    <h1 class="profile-title">
+                        <i class="fas fa-user-circle"></i>
+                        My Profile
+                    </h1>
+                    <p class="profile-subtitle">Manage your account and connections</p>
+                </div>
+
+                <!-- Profile Content Grid -->
+                <div class="profile-grid">
+                    <!-- Left Column: User Info & Settings -->
+                    <div class="profile-left">
+                        <!-- User Info Card -->
+                        <div class="card user-info-card">
+                            <div class="card-header">
+                                <h2>
+                                    <i class="fas fa-user"></i>
+                                    Personal Information
+                                </h2>
+                            </div>
+                            <div class="card-body">
+                                <!-- Profile Picture -->
+                                <div class="profile-picture-section">
+                                    <div class="profile-picture-wrapper">
+                                        <div id="profilePicture" class="profile-picture">
+                                            <i class="fas fa-user"></i>
+                                        </div>
+                                        <button class="change-picture-btn" id="changePictureBtn">
+                                            <i class="fas fa-camera"></i>
+                                        </button>
+                                        <input type="file" id="pictureInput" accept="image/*" style="display: none;">
+                                    </div>
+                                </div>
+
+                                <!-- User Details Form -->
+                                <form id="profileForm" class="profile-form">
+                                    <div class="form-group">
+                                        <label class="form-label">
+                                            <i class="fas fa-user"></i>
+                                            Username
+                                        </label>
+                                        <input type="text" id="username" class="form-input" readonly>
+                                        <button type="button" class="edit-btn" id="editUsernameBtn">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">
+                                            <i class="fas fa-envelope"></i>
+                                            Email
+                                        </label>
+                                        <input type="email" id="email" class="form-input" readonly>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label class="form-label">
+                                            <i class="fas fa-calendar"></i>
+                                            Member Since
+                                        </label>
+                                        <input type="text" id="memberSince" class="form-input" readonly>
+                                    </div>
+
+                                    <button type="button" class="btn btn-primary" id="changePasswordBtn">
+                                        <i class="fas fa-key"></i>
+                                        Change Password
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Notifications Settings Card -->
+                        <div class="card notifications-card">
+                            <div class="card-header">
+                                <h2>
+                                    <i class="fas fa-bell"></i>
+                                    Notifications
+                                </h2>
+                                <span class="notification-badge" id="notificationCount">0</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="notifications-list" id="notificationsList">
+                                    <div class="empty-state">
+                                        <i class="fas fa-bell-slash"></i>
+                                        <p>No new notifications</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Friends Management -->
+                    <div class="profile-right">
+                        <!-- Add Friend Card -->
+                        <div class="card add-friend-card">
+                            <div class="card-header">
+                                <h2>
+                                    <i class="fas fa-user-plus"></i>
+                                    Add Friend
+                                </h2>
+                            </div>
+                            <div class="card-body">
+                                <form id="addFriendForm" class="add-friend-form">
+                                    <div class="form-group">
+                                        <input type="text" id="friendSearch" class="form-input" placeholder="Enter username or email">
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="fas fa-paper-plane"></i>
+                                            Send Request
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Friend Requests Card -->
+                        <div class="card friend-requests-card">
+                            <div class="card-header">
+                                <h2>
+                                    <i class="fas fa-user-clock"></i>
+                                    Friend Requests
+                                </h2>
+                                <span class="request-badge" id="requestCount">0</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="requests-list" id="requestsList">
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>No pending requests</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Friends List Card -->
+                        <div class="card friends-list-card">
+                            <div class="card-header">
+                                <h2>
+                                    <i class="fas fa-users"></i>
+                                    My Friends
+                                </h2>
+                                <span class="friends-count" id="friendsCount">0</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="search-box">
+                                    <i class="fas fa-search"></i>
+                                    <input type="text" id="friendsSearchInput" placeholder="Search friends...">
+                                </div>
+                                <div class="friends-list" id="friendsList">
+                                    <div class="empty-state">
+                                        <i class="fas fa-user-friends"></i>
+                                        <p>No friends yet. Start by adding some!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Change Password Modal -->
+        <div id="changePasswordModal" class="modal-overlay" style="display: none;">
+            <div class="popup-wrapper">
+                <div class="popup-content popup-main">
+                    <div class="popup-header">
+                        <h2>
+                            <i class="fas fa-key"></i>
+                            Change Password
+                        </h2>
+                        <button class="popup-close" id="closePasswordModal">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="popup-body">
+                        <form id="changePasswordForm">
+                            <div class="form-group">
+                                <label class="form-label">Current Password</label>
+                                <input type="password" id="currentPassword" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">New Password</label>
+                                <input type="password" id="newPassword" class="form-input" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Confirm New Password</label>
+                                <input type="password" id="confirmPassword" class="form-input" required>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="popup-footer">
+                        <button type="button" class="btn btn-secondary" id="cancelPasswordBtn">Cancel</button>
+                        <button type="submit" form="changePasswordForm" class="btn btn-primary">
+                            <i class="fas fa-check"></i>
+                            Update Password
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}

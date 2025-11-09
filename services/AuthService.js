@@ -122,9 +122,15 @@ export function register(userData) {
 export function logout(redirectToLogin = true) {
     clearCurrentUser();
     console.log('✅ Logout successful');
-    
+
     if (redirectToLogin) {
-        window.location.href = '/views/LoginPage.html';
+        if (window.__SPA_MODE__) {
+            import('../scripts/core/Router.js').then(({ router }) => {
+                router.navigate('/login', true);
+            });
+        } else {
+            window.location.href = '/views/LoginPage.html';
+        }
     }
 }
 
@@ -137,21 +143,33 @@ export function logout(redirectToLogin = true) {
 export function checkAuth() {
     const currentUser = getCurrentUser();
     const currentPath = window.location.pathname;
-    
+
     // If not logged in and not on login page
-    if (!currentUser && !currentPath.includes('LoginPage.html')) {
+    if (!currentUser && !currentPath.includes('LoginPage.html') && currentPath !== '/login') {
         console.log('❌ Not authenticated, redirecting to login...');
-        window.location.href = '/views/LoginPage.html';
+        if (window.__SPA_MODE__) {
+            import('../scripts/core/Router.js').then(({ router }) => {
+                router.navigate('/login', true);
+            });
+        } else {
+            window.location.href = '/views/LoginPage.html';
+        }
         return false;
     }
-    
+
     // If logged in and on login page, redirect to dashboard
-    if (currentUser && currentPath.includes('LoginPage.html')) {
+    if (currentUser && (currentPath.includes('LoginPage.html') || currentPath === '/login')) {
         console.log('✅ Already logged in, redirecting to dashboard...');
-        window.location.href = '/views/DashboardPage.html';
+        if (window.__SPA_MODE__) {
+            import('../scripts/core/Router.js').then(({ router }) => {
+                router.navigate('/dashboard', true);
+            });
+        } else {
+            window.location.href = '/views/DashboardPage.html';
+        }
         return false;
     }
-    
+
     return true;
 }
 
@@ -162,7 +180,13 @@ export function checkAuth() {
 export function requireAuth() {
     if (!isAuthenticated()) {
         console.log('❌ Authentication required, redirecting to login...');
-        window.location.href = '/views/LoginPage.html';
+        if (window.__SPA_MODE__) {
+            import('../scripts/core/Router.js').then(({ router }) => {
+                router.navigate('/login', true);
+            });
+        } else {
+            window.location.href = '/views/LoginPage.html';
+        }
         return false;
     }
     return true;
@@ -176,7 +200,13 @@ export function checkIfLoggedIn() {
     const currentUser = getCurrentUser();
     if (currentUser) {
         console.log('✅ User already logged in, redirecting to dashboard...');
-        window.location.href = '/views/DashboardPage.html';
+        if (window.__SPA_MODE__) {
+            import('../scripts/core/Router.js').then(({ router }) => {
+                router.navigate('/dashboard', true);
+            });
+        } else {
+            window.location.href = '/views/DashboardPage.html';
+        }
         return true;
     }
     return false;

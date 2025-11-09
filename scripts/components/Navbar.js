@@ -4,53 +4,54 @@ import { getCurrentUser, logout, checkAuth } from '../../services/AuthService.js
 // Create navbar HTML
 export function createNavbar() {
     const currentUser = getCurrentUser();
-    
-    // If not logged in, redirect to login
+
+    // If not logged in, don't render navbar (SPA mode will redirect to login)
     if (!currentUser) {
-        if (!window.location.pathname.includes('LoginPage.html')) {
-            window.location.href = '/views/LoginPage.html';
-        }
         return '';
     }
-    
-    // Get current page
-    const currentPage = window.location.pathname.split('/').pop() || 'DashboardPage.html';
-    
+
+    // Get current path for active state
+    const currentPath = window.location.pathname;
+
+    // Helper functions for URL and active state
+    const getUrl = (path) => path;
+    const isActive = (path) => currentPath === path ? 'active' : '';
+
     return `
         <nav class="navbar">
             <div class="navbar-container">
-                <a href="/views/DashboardPage.html" class="navbar-brand">
+                <a href="${getUrl('/dashboard')}" class="navbar-brand">
                     <i class="fas fa-tasks"></i>
                     <span>Nivoxar</span>
                 </a>
-                
+
                 <ul class="navbar-menu">
                     <li>
-                        <a href="/views/DashboardPage.html" class="${currentPage === 'DashboardPage.html' ? 'active' : ''}">
+                        <a href="${getUrl('/dashboard')}" class="${isActive('/dashboard')}">
                             <i class="fas fa-home"></i>
                             <span>Dashboard</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/views/SharedTasksPage.html" class="${currentPage === 'SharedTasksPage.html' ? 'active' : ''}">
+                        <a href="${getUrl('/shared-tasks')}" class="${isActive('/shared-tasks')}">
                             <i class="fas fa-share-nodes"></i>
                             <span>Shared Tasks</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/views/CategoriesPage.html" class="${currentPage === 'CategoriesPage.html' ? 'active' : ''}">
+                        <a href="${getUrl('/categories')}" class="${isActive('/categories')}">
                             <i class="fas fa-folder"></i>
                             <span>Categories</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/views/CalendarPage.html" class="${currentPage === 'CalendarPage.html' ? 'active' : ''}">
+                        <a href="${getUrl('/calendar')}" class="${isActive('/calendar')}">
                             <i class="fas fa-calendar-alt"></i>
                             <span>Calendar</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/views/AnalyticsPage.html" class="${currentPage === 'AnalyticsPage.html' ? 'active' : ''}">
+                        <a href="${getUrl('/analytics')}" class="${isActive('/analytics')}">
                             <i class="fas fa-chart-line"></i>
                             <span>Analytics</span>
                         </a>
@@ -97,7 +98,13 @@ export function initNavbar() {
     const profileBtn = document.getElementById('userProfileBtn');
     if (profileBtn) {
         profileBtn.addEventListener('click', () => {
-            window.location.href = '/views/ProfilePage.html';
+            if (window.__SPA_MODE__) {
+                import('../core/Router.js').then(({ router }) => {
+                    router.navigate('/profile');
+                });
+            } else {
+                window.location.href = '/views/ProfilePage.html';
+            }
         });
     }
 
@@ -113,3 +120,38 @@ function handleLogout() {
 
 // Export checkAuth from AuthService for backward compatibility
 export { checkAuth };
+
+// Render navbar for SPA
+export async function renderNavbar() {
+    const navbarContainer = document.getElementById('navbarContainer');
+
+    if (!navbarContainer) {
+        console.warn('⚠️ Navbar container not found');
+        return;
+    }
+
+    // Insert navbar HTML
+    navbarContainer.innerHTML = createNavbar();
+
+    // Setup logout button
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
+
+    // Setup profile button - for SPA mode, use router
+    const profileBtn = document.getElementById('userProfileBtn');
+    if (profileBtn) {
+        profileBtn.addEventListener('click', () => {
+            if (window.__SPA_MODE__) {
+                import('../core/Router.js').then(({ router }) => {
+                    router.navigate('/profile');
+                });
+            } else {
+                window.location.href = '/views/ProfilePage.html';
+            }
+        });
+    }
+
+    console.log('✅ Navbar rendered');
+}

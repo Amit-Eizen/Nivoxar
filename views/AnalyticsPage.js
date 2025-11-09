@@ -18,12 +18,20 @@ async function init() {
         // Check authentication
         const user = getCurrentUser();
         if (!user) {
-            window.location.href = './LoginPage.html';
+            if (window.__SPA_MODE__) {
+                import('../scripts/core/Router.js').then(({ router }) => {
+                    router.navigate('/login');
+                });
+            } else {
+                window.location.href = './LoginPage.html';
+            }
             return;
         }
-        
-        // Initialize Navbar
-        initNavbar();
+
+        // Only init navbar in MPA mode (SPA mode handles navbar globally)
+        if (!window.__SPA_MODE__) {
+            initNavbar();
+        }
         
         // Show loading
         showLoading();
@@ -799,8 +807,422 @@ function showError(message) {
 }
 
 // Initialize on DOM Ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
+// For standalone HTML page (MPA mode)
+if (!window.__SPA_MODE__) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+}
+
+// ===== SPA MODE =====
+
+/**
+ * Load Analytics page for SPA
+ */
+export async function loadAnalyticsPage() {
+    console.log('📄 Loading Analytics Page...');
+
+    // Load CSS and Chart.js
+    await loadPageCSS();
+
+    // Get app container
+    const app = document.getElementById('app');
+    if (!app) {
+        console.error('App container not found');
+        return;
+    }
+
+    // Inject HTML
+    app.innerHTML = getPageHTML();
+
+    // Wait for Chart.js to load if needed
+    if (!window.Chart) {
+        console.log('⏳ Waiting for Chart.js to load...');
+        await new Promise(resolve => {
+            const checkChart = setInterval(() => {
+                if (window.Chart) {
+                    clearInterval(checkChart);
+                    console.log('✅ Chart.js loaded!');
+                    resolve();
+                }
+            }, 50);
+            // Timeout after 5 seconds
+            setTimeout(() => {
+                clearInterval(checkChart);
+                console.error('❌ Chart.js failed to load');
+                resolve();
+            }, 5000);
+        });
+    }
+
+    // Initialize Analytics
+    await init();
+}
+
+/**
+ * Load CSS and Scripts for Analytics page
+ */
+async function loadPageCSS() {
+    console.log('📦 Loading Analytics CSS and scripts...');
+
+    const cssFiles = [
+        '/public/styles/dashboard/variables.css',
+        '/public/styles/dashboard/base.css',
+        '/public/styles/AnalyticsPage.css'
+    ];
+
+    // Remove existing page-specific stylesheets
+    const oldLinks = document.querySelectorAll('link[data-page-style]');
+    console.log(`🗑️ Removing ${oldLinks.length} old stylesheets`);
+    oldLinks.forEach(link => link.remove());
+
+    // Load new stylesheets
+    cssFiles.forEach(href => {
+        const existing = document.querySelector(`link[href="${href}"]`);
+        if (existing) {
+            console.log(`⚠️ CSS already exists: ${href}`);
+            return;
+        }
+
+        console.log(`✅ Loading CSS: ${href}`);
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-page-style', 'true');
+        document.head.appendChild(link);
+    });
+
+    // Load Chart.js if not already loaded
+    if (!window.Chart) {
+        console.log('📊 Loading Chart.js...');
+        return new Promise((resolve) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+            script.setAttribute('data-page-script', 'true');
+            script.onload = () => {
+                console.log('✅ Chart.js loaded!');
+                resolve();
+            };
+            document.head.appendChild(script);
+        });
+    }
+}
+
+/**
+ * Get Analytics HTML - Full version matching original HTML structure
+ */
+function getPageHTML() {
+    return `
+        <!-- Loading State -->
+        <div id="loading" class="loading-state" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading Analytics...</p>
+        </div>
+
+        <!-- Main Analytics Page -->
+        <div id="analytics-page" class="analytics-page">
+            <div class="analytics-container">
+                <!-- Header -->
+                <div class="analytics-header">
+                    <div>
+                        <h1 class="analytics-title">
+                            <i class="fas fa-chart-line"></i>
+                            Analytics Dashboard
+                        </h1>
+                        <p class="analytics-subtitle">Track your productivity and task performance</p>
+                    </div>
+                    <div class="header-actions">
+                        <div class="filter-controls">
+                            <select id="time-filter" class="time-filter-select">
+                                <option value="all">All Time</option>
+                                <option value="week">Past Week</option>
+                                <option value="month">Past Month</option>
+                                <option value="quarter">Past Quarter</option>
+                                <option value="year">Past Year</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Error Message (from base.css) -->
+                <div id="error-message" class="error-message">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="error-text"></span>
+                    <button class="error-close" onclick="this.parentElement.classList.remove('active')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- Tab Navigation -->
+                <div class="analytics-tabs">
+                    <button class="tab-btn active" data-tab="overview">
+                        <i class="fas fa-th-large"></i>
+                        <span>Overview</span>
+                    </button>
+                    <button class="tab-btn" data-tab="trends">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Trends</span>
+                    </button>
+                    <button class="tab-btn" data-tab="productivity">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Productivity</span>
+                    </button>
+                    <button class="tab-btn" data-tab="insights">
+                        <i class="fas fa-lightbulb"></i>
+                        <span>Insights</span>
+                    </button>
+                </div>
+
+                <!-- Overview Tab -->
+                <div id="tab-overview" class="tab-content active">
+                    <!-- Metrics Grid -->
+                    <div class="metrics-grid">
+                        <div class="metric-card total-tasks">
+                            <div class="metric-icon">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <div class="metric-content">
+                                <span class="metric-number" id="total-tasks">0</span>
+                                <span class="metric-label">Total Tasks</span>
+                                <div class="metric-trend">
+                                    <i class="fas fa-arrow-up"></i>
+                                    <span>All time</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card completed-tasks">
+                            <div class="metric-icon">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="metric-content">
+                                <span class="metric-number" id="completed-tasks">0</span>
+                                <span class="metric-label">Completed</span>
+                                <div class="metric-progress">
+                                    <div class="progress-bar">
+                                        <div class="progress-fill" id="completed-progress"></div>
+                                    </div>
+                                    <div class="metric-info" id="completion-rate">0% completion rate</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card pending-tasks">
+                            <div class="metric-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="metric-content">
+                                <span class="metric-number" id="pending-tasks">0</span>
+                                <span class="metric-label">Pending</span>
+                                <div class="metric-trend">
+                                    <i class="fas fa-hourglass-half"></i>
+                                    <span id="overdue-info">No overdue tasks</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card productivity-score">
+                            <div class="metric-icon">
+                                <i class="fas fa-trophy"></i>
+                            </div>
+                            <div class="metric-content">
+                                <span class="metric-number" id="productivity-score">0</span>
+                                <span class="metric-label">Productivity Score</span>
+                                <div class="score-ring">
+                                    <svg class="ring-svg" viewBox="0 0 100 100">
+                                        <defs>
+                                            <linearGradient id="scoreGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                                <stop offset="0%" style="stop-color:#10b981;stop-opacity:1" />
+                                                <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+                                            </linearGradient>
+                                        </defs>
+                                        <circle class="ring-background" cx="50" cy="50" r="40"></circle>
+                                        <circle class="ring-progress" id="score-ring" cx="50" cy="50" r="40"></circle>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card today-tasks">
+                            <div class="metric-icon">
+                                <i class="fas fa-calendar-day"></i>
+                            </div>
+                            <div class="metric-content">
+                                <span class="metric-number" id="today-tasks">0</span>
+                                <span class="metric-label">Due Today</span>
+                                <div class="metric-trend">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <span>Today's focus</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="metric-card avg-completion">
+                            <div class="metric-icon">
+                                <i class="fas fa-stopwatch"></i>
+                            </div>
+                            <div class="metric-content">
+                                <span class="metric-number" id="avg-completion">0</span>
+                                <span class="metric-label">Avg. Completion</span>
+                                <div class="metric-info">Days to complete</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Grid -->
+                    <div class="charts-grid">
+                        <!-- Category Distribution -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3>
+                                    <i class="fas fa-folder"></i>
+                                    Tasks by Category
+                                </h3>
+                            </div>
+                            <div class="chart-content">
+                                <canvas id="category-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Priority Distribution -->
+                        <div class="chart-card">
+                            <div class="chart-header">
+                                <h3>
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    Priority Distribution
+                                </h3>
+                            </div>
+                            <div class="chart-content">
+                                <canvas id="priority-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trends Tab -->
+                <div id="tab-trends" class="tab-content" style="display: none;">
+                    <div class="charts-grid">
+                        <!-- Weekly Trend -->
+                        <div class="chart-card full-width">
+                            <div class="chart-header">
+                                <h3>
+                                    <i class="fas fa-chart-line"></i>
+                                    Weekly Productivity Trend
+                                </h3>
+                            </div>
+                            <div class="chart-content">
+                                <canvas id="weekly-trend-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Completion Rate by Category -->
+                        <div class="chart-card full-width">
+                            <div class="chart-header">
+                                <h3>
+                                    <i class="fas fa-chart-bar"></i>
+                                    Completion Rate by Category
+                                </h3>
+                            </div>
+                            <div class="chart-content">
+                                <canvas id="category-completion-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Productivity Tab -->
+                <div id="tab-productivity" class="tab-content" style="display: none;">
+                    <div class="performance-metrics">
+                        <h2>
+                            <i class="fas fa-chart-bar"></i>
+                            Performance Metrics
+                        </h2>
+                        <div class="metrics-grid">
+                            <div class="performance-card">
+                                <div class="performance-icon">
+                                    <i class="fas fa-target"></i>
+                                </div>
+                                <div class="performance-content">
+                                    <h4>Goal Achievement</h4>
+                                    <div class="performance-score" id="goal-achievement">0%</div>
+                                    <div class="performance-bar">
+                                        <div class="performance-fill" id="goal-achievement-bar" style="background-color: #10b981;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="performance-card">
+                                <div class="performance-icon">
+                                    <i class="fas fa-shipping-fast"></i>
+                                </div>
+                                <div class="performance-content">
+                                    <h4>Speed & Efficiency</h4>
+                                    <div class="performance-score" id="speed-efficiency">0%</div>
+                                    <div class="performance-bar">
+                                        <div class="performance-fill" id="speed-efficiency-bar" style="background-color: #3b82f6;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="performance-card">
+                                <div class="performance-icon">
+                                    <i class="fas fa-balance-scale"></i>
+                                </div>
+                                <div class="performance-content">
+                                    <h4>Work-Life Balance</h4>
+                                    <div class="performance-score" id="work-life-balance">0%</div>
+                                    <div class="performance-bar">
+                                        <div class="performance-fill" id="work-life-balance-bar" style="background-color: #8b5cf6;"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="performance-card">
+                                <div class="performance-icon">
+                                    <i class="fas fa-trophy"></i>
+                                </div>
+                                <div class="performance-content">
+                                    <h4>Overall Score</h4>
+                                    <div class="performance-score" id="overall-score">0%</div>
+                                    <div class="performance-bar">
+                                        <div class="performance-fill" id="overall-score-bar" style="background-color: #f59e0b;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insights Tab -->
+                <div id="tab-insights" class="tab-content" style="display: none;">
+                    <div class="insights-section">
+                        <div class="insights-header">
+                            <h2>
+                                <i class="fas fa-lightbulb"></i>
+                                AI-Powered Insights
+                            </h2>
+                            <p>Personalized recommendations based on your task patterns</p>
+                        </div>
+
+                        <div class="insights-grid" id="insights-grid">
+                            <!-- Dynamic insights will be inserted here -->
+                        </div>
+
+                        <!-- Personalized Recommendations -->
+                        <div class="recommendations-section">
+                            <h3>
+                                <i class="fas fa-magic"></i>
+                                Personalized Recommendations
+                            </h3>
+                            <div class="recommendations-list" id="recommendations-list">
+                                <!-- Dynamic recommendations will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }

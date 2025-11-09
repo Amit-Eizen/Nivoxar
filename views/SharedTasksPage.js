@@ -1,5 +1,5 @@
 // SharedTasksPage.js
-import { initNavbar } from './components/Navbar.js';
+import { initNavbar } from '../scripts/components/Navbar.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 import { getMySharedTasks, getSharedTaskByTaskId, getAllParticipants, isOwner,
          leaveSharedTask, unshareTask, addParticipants, removeParticipant } from '../services/SharedTasksService.js';
@@ -27,8 +27,11 @@ function initializeSharedTasksPage() {
 
     pageState.currentUser = currentUser;
 
-    // Initialize components
-    initNavbar();
+    // Only init navbar in MPA mode (SPA mode handles navbar globally)
+    if (!window.__SPA_MODE__) {
+        initNavbar();
+    }
+
     initNotificationsPopup();
     setupEventListeners();
 
@@ -445,7 +448,13 @@ function handleUnshareTask() {
 
 // ===== OPEN IN DASHBOARD =====
 function openInDashboard() {
-    window.location.href = '/views/DashboardPage.html';
+    if (window.__SPA_MODE__) {
+        import('../scripts/core/Router.js').then(({ router }) => {
+            router.navigate('/dashboard');
+        });
+    } else {
+        window.location.href = '/views/DashboardPage.html';
+    }
 }
 
 // ===== NOTIFICATIONS POPUP =====
@@ -684,4 +693,306 @@ window.sharedTasksPage = {
 };
 
 // ===== INITIALIZE ON DOM READY =====
-document.addEventListener('DOMContentLoaded', initializeSharedTasksPage);
+// For standalone HTML page (MPA mode)
+if (!window.__SPA_MODE__) {
+    document.addEventListener('DOMContentLoaded', initializeSharedTasksPage);
+}
+
+// ===== SPA MODE =====
+
+/**
+ * Load Shared Tasks page for SPA
+ */
+export async function loadSharedTasksPage() {
+    console.log('📄 Loading Shared Tasks Page...');
+
+    // Load CSS
+    loadPageCSS();
+
+    // Get app container
+    const app = document.getElementById('app');
+    if (!app) {
+        console.error('App container not found');
+        return;
+    }
+
+    // Inject HTML
+    app.innerHTML = getPageHTML();
+
+    // Initialize Shared Tasks
+    initializeSharedTasksPage();
+}
+
+/**
+ * Load CSS for Shared Tasks page
+ */
+function loadPageCSS() {
+    const cssFiles = [
+        '/public/styles/SharedTasksPage.css'
+    ];
+
+    // Remove existing page-specific stylesheets
+    document.querySelectorAll('link[data-page-style]').forEach(link => link.remove());
+
+    // Load new stylesheets
+    cssFiles.forEach(href => {
+        const existing = document.querySelector(`link[href="${href}"]`);
+        if (existing) return;
+
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute('data-page-style', 'true');
+        document.head.appendChild(link);
+    });
+}
+
+/**
+ * Get Shared Tasks HTML
+ */
+function getPageHTML() {
+    return `
+        <!-- Shared Tasks Content -->
+        <div class="shared-tasks-container">
+            <!-- Main Container -->
+            <div class="main-container">
+                <!-- Header -->
+                <header class="page-header">
+                    <div class="header-left">
+                        <h1 class="page-title">
+                            <i class="fas fa-share-nodes"></i>
+                            Shared Tasks
+                        </h1>
+                        <p class="page-subtitle">
+                            Collaborate with friends and family
+                        </p>
+                    </div>
+                    <div class="header-actions">
+                        <button class="header-btn notification-btn" id="notificationBtn" aria-label="Notifications">
+                            <i class="fas fa-bell"></i>
+                            <span class="notification-badge" id="notificationCount">0</span>
+                        </button>
+                    </div>
+                </header>
+
+                <!-- Loading State -->
+                <div id="loadingState" class="loading-state" style="display: none;">
+                    <div class="loading-spinner"></div>
+                    <p>Loading shared tasks...</p>
+                </div>
+
+                <!-- Error Message -->
+                <div id="errorMessage" class="error-message" style="display: none;">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p id="errorText">An error occurred</p>
+                    <button class="error-close" id="errorClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- Stats Section -->
+                <section class="stats-section">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-share-nodes"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalSharedTasks">0</span>
+                            <p class="stat-label">Shared Tasks</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="ownedTasks">0</span>
+                            <p class="stat-label">Tasks I Own</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="participatingTasks">0</span>
+                            <p class="stat-label">Participating In</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-user-group"></i>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalCollaborators">0</span>
+                            <p class="stat-label">Collaborators</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Filter & Search Section -->
+                <section class="controls-section">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchInput" placeholder="Search shared tasks...">
+                    </div>
+
+                    <div class="filter-buttons">
+                        <button class="filter-btn active" data-filter="all">
+                            <i class="fas fa-th"></i>
+                            All Tasks
+                        </button>
+                        <button class="filter-btn" data-filter="owned">
+                            <i class="fas fa-crown"></i>
+                            My Tasks
+                        </button>
+                        <button class="filter-btn" data-filter="participating">
+                            <i class="fas fa-users"></i>
+                            Participating
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Shared Tasks List -->
+                <section class="tasks-section">
+                    <div id="sharedTasksList" class="tasks-list">
+                        <!-- Tasks will be rendered here -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="emptyState" class="empty-state" style="display: none;">
+                        <i class="fas fa-share-nodes"></i>
+                        <h3>No Shared Tasks Yet</h3>
+                        <p>Share tasks from your Dashboard to collaborate with friends and family</p>
+                        <a href="/dashboard" class="btn btn-primary">
+                            <i class="fas fa-home"></i>
+                            Go to Dashboard
+                        </a>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Task Details Modal -->
+        <div id="taskDetailsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTaskTitle">Task Details</h2>
+                    <button class="modal-close" id="closeTaskModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Task Info -->
+                    <div class="task-info-section">
+                        <div class="info-row">
+                            <label><i class="fas fa-user"></i> Owner:</label>
+                            <span id="taskOwner"></span>
+                        </div>
+                        <div class="info-row">
+                            <label><i class="fas fa-folder"></i> Category:</label>
+                            <span id="taskCategory"></span>
+                        </div>
+                        <div class="info-row">
+                            <label><i class="fas fa-flag"></i> Priority:</label>
+                            <span id="taskPriority"></span>
+                        </div>
+                        <div class="info-row">
+                            <label><i class="fas fa-calendar"></i> Due Date:</label>
+                            <span id="taskDueDate"></span>
+                        </div>
+                        <div class="info-row">
+                            <label><i class="fas fa-clock"></i> Last Edited:</label>
+                            <span id="taskLastEdited"></span>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="description-section">
+                        <h3><i class="fas fa-align-left"></i> Description</h3>
+                        <p id="taskDescription">No description</p>
+                    </div>
+
+                    <!-- Subtasks -->
+                    <div class="subtasks-section">
+                        <h3><i class="fas fa-list-check"></i> Subtasks</h3>
+                        <div id="taskSubtasks">
+                            <p class="text-muted">No subtasks</p>
+                        </div>
+                    </div>
+
+                    <!-- Collaborators -->
+                    <div class="collaborators-section">
+                        <h3>
+                            <i class="fas fa-users"></i>
+                            Collaborators
+                            <span class="collaborator-count" id="collaboratorCount">0</span>
+                        </h3>
+                        <div id="collaboratorsList" class="collaborators-list">
+                            <!-- Collaborators will be rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="modal-actions">
+                        <button class="btn btn-primary" id="openTaskBtn">
+                            <i class="fas fa-external-link-alt"></i>
+                            Open in Dashboard
+                        </button>
+                        <button class="btn btn-secondary" id="manageParticipantsBtn">
+                            <i class="fas fa-user-plus"></i>
+                            Manage Participants
+                        </button>
+                        <button class="btn btn-danger" id="leaveTaskBtn" style="display: none;">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Leave Task
+                        </button>
+                        <button class="btn btn-danger" id="unshareTaskBtn" style="display: none;">
+                            <i class="fas fa-trash"></i>
+                            Unshare Task
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Participants Modal -->
+        <div id="manageParticipantsModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2><i class="fas fa-users"></i> Manage Participants</h2>
+                    <button class="modal-close" id="closeManageModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <!-- Current Participants -->
+                    <div class="current-participants">
+                        <h3>Current Participants</h3>
+                        <div id="currentParticipantsList" class="participants-list">
+                            <!-- Participants will be rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Add Participants -->
+                    <div class="add-participants-section">
+                        <h3>Add Participants</h3>
+                        <div class="add-participant-form">
+                            <select id="friendsSelect" class="form-control">
+                                <option value="">Select a friend...</option>
+                            </select>
+                            <button class="btn btn-primary" id="addParticipantBtn">
+                                <i class="fas fa-plus"></i>
+                                Add
+                            </button>
+                        </div>
+                        <p class="text-muted small">You can only add friends to shared tasks</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}

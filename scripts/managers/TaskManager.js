@@ -1,4 +1,4 @@
-import { dashboardState, updateDashboard } from '../DashboardPage.js';
+import { dashboardState, updateDashboard } from '../../views/DashboardPage.js';
 import {
     createTaskElement,
     isTaskOverdue,
