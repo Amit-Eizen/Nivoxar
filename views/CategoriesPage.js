@@ -34,8 +34,8 @@ function initializePage() {
     // Show loading, then load categories
     showLoading();
 
-    setTimeout(() => {
-        loadAndRenderCategories();
+    setTimeout(async () => {
+        await loadAndRenderCategories();
         hideLoading();
         console.log('✅ Categories Page initialized!');
     }, 300);
@@ -106,8 +106,8 @@ function setupEventListeners() {
 }
 
 // ===== LOAD AND RENDER CATEGORIES =====
-function loadAndRenderCategories() {
-    renderCategories('categoriesGrid');
+async function loadAndRenderCategories() {
+    await renderCategories('categoriesGrid');
 }
 
 // ===== SHOW/HIDE LOADING =====

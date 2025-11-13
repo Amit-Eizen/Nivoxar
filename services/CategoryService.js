@@ -3,11 +3,12 @@
 // Supports both localStorage (current) and API (future)
 
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
+import { apiRequest } from './AuthService.js';
 
 // ===== CONFIGURATION =====
 const CONFIG = {
-    useAPI: false, // Set to true when API is ready
-    apiBaseURL: '/api/categories', // Future API endpoint
+    useAPI: true, // API is now ready!
+    apiBaseURL: '/categories',
     storageKey: STORAGE_KEYS.CATEGORIES
 };
 
@@ -134,26 +135,14 @@ function getCategoryByIdLocally(categoryId) {
     return categories.find(cat => cat.id === categoryId) || null;
 }
 
-// ===== API METHODS (Future) // 
+// ===== API METHODS //
 
 async function getCategoriesFromAPI() {
     try {
-        const response = await fetch(CONFIG.apiBaseURL, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                // Add auth token here when ready:
-                // 'Authorization': `Bearer ${getAuthToken()}`
-            }
+        const data = await apiRequest(CONFIG.apiBaseURL, {
+            method: 'GET'
         });
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-        
-        const data = await response.json();
         return data;
-        
     } catch (error) {
         console.error('Error fetching categories from API:', error);
         throw error;
@@ -162,22 +151,14 @@ async function getCategoriesFromAPI() {
 
 async function createCategoryViaAPI(categoryData) {
     try {
-        const response = await fetch(CONFIG.apiBaseURL, {
+        const data = await apiRequest(CONFIG.apiBaseURL, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Authorization': `Bearer ${getAuthToken()}`
-            },
-            body: JSON.stringify(categoryData)
+            body: JSON.stringify({
+                name: categoryData.name,
+                color: categoryData.color
+            })
         });
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-        
-        const data = await response.json();
         return data;
-        
     } catch (error) {
         console.error('Error creating category via API:', error);
         throw error;
@@ -186,22 +167,14 @@ async function createCategoryViaAPI(categoryData) {
 
 async function updateCategoryViaAPI(categoryId, updatedData) {
     try {
-        const response = await fetch(`${CONFIG.apiBaseURL}/${categoryId}`, {
+        const data = await apiRequest(`${CONFIG.apiBaseURL}/${categoryId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Authorization': `Bearer ${getAuthToken()}`
-            },
-            body: JSON.stringify(updatedData)
+            body: JSON.stringify({
+                name: updatedData.name,
+                color: updatedData.color
+            })
         });
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-        
-        const data = await response.json();
         return data;
-        
     } catch (error) {
         console.error('Error updating category via API:', error);
         throw error;
@@ -210,20 +183,10 @@ async function updateCategoryViaAPI(categoryId, updatedData) {
 
 async function deleteCategoryViaAPI(categoryId) {
     try {
-        const response = await fetch(`${CONFIG.apiBaseURL}/${categoryId}`, {
-            method: 'DELETE',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Authorization': `Bearer ${getAuthToken()}`
-            }
+        await apiRequest(`${CONFIG.apiBaseURL}/${categoryId}`, {
+            method: 'DELETE'
         });
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-        
         return true;
-        
     } catch (error) {
         console.error('Error deleting category via API:', error);
         throw error;
@@ -232,21 +195,10 @@ async function deleteCategoryViaAPI(categoryId) {
 
 async function getCategoryByIdViaAPI(categoryId) {
     try {
-        const response = await fetch(`${CONFIG.apiBaseURL}/${categoryId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Authorization': `Bearer ${getAuthToken()}`
-            }
+        const data = await apiRequest(`${CONFIG.apiBaseURL}/${categoryId}`, {
+            method: 'GET'
         });
-        
-        if (!response.ok) {
-            throw new Error(`API Error: ${response.status}`);
-        }
-        
-        const data = await response.json();
         return data;
-        
     } catch (error) {
         console.error('Error fetching category via API:', error);
         throw error;
