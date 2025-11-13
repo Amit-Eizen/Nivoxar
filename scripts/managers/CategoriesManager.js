@@ -1,6 +1,7 @@
 // Manages all category operations: CRUD, localStorage, rendering
 
 import {
+    getAllCategories,
     getAllCategoriesSync,
     createCategory as createCategoryService,
     updateCategory as updateCategoryService,
@@ -11,8 +12,13 @@ import {
 // ===== AVAILABLE COLORS =====
 export const AVAILABLE_COLORS = CATEGORY_COLORS;
 
-// ===== GET CATEGORIES =====
-export function getCategories() {
+// ===== GET CATEGORIES (Async) =====
+export async function getCategories() {
+    return await getAllCategories();
+}
+
+// ===== GET CATEGORIES (Sync - deprecated, for backward compatibility) =====
+export function getCategoriesSync() {
     return getAllCategoriesSync();
 }
 
@@ -143,16 +149,16 @@ export function renderCategoryCard(category) {
 }
 
 // ===== RENDER ALL CATEGORIES =====
-export function renderCategories(containerId) {
-    const categories = getCategories();
+export async function renderCategories(containerId) {
+    const categories = await getCategories();
     const container = document.getElementById(containerId);
     const emptyState = document.getElementById('emptyState');
-    
+
     if (!container) {
         console.error('Container not found:', containerId);
         return;
     }
-    
+
     // Show empty state or categories grid
     if (categories.length === 0) {
         container.style.display = 'none';
@@ -160,11 +166,11 @@ export function renderCategories(containerId) {
     } else {
         container.style.display = 'grid';
         if (emptyState) emptyState.style.display = 'none';
-        
+
         // Render all category cards
         container.innerHTML = categories.map(cat => renderCategoryCard(cat)).join('');
     }
-    
+
     console.log(`📊 Rendered ${categories.length} categories`);
 }
 

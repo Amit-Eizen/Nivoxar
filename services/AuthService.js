@@ -3,23 +3,32 @@
 
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
 
-// ===== USER MANAGEMENT =====
+// API Configuration
+const API_BASE_URL = 'http://localhost:5000/api';
+
+// ===== TOKEN MANAGEMENT =====
 
 /**
- * Get all users from localStorage
- * @returns {Array} Array of user objects
+ * Get JWT token from localStorage
+ * @returns {string|null} JWT token or null if not exists
  */
-export function getUsers() {
-    const saved = localStorage.getItem(STORAGE_KEYS.USERS);
-    return saved ? JSON.parse(saved) : [];
+function getToken() {
+    return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
 }
 
 /**
- * Save users to localStorage
- * @param {Array} users - Array of user objects
+ * Set JWT token in localStorage
+ * @param {string} token - JWT token
  */
-export function saveUsers(users) {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+function setToken(token) {
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+}
+
+/**
+ * Remove JWT token from localStorage
+ */
+function clearToken() {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
 }
 
 // ===== CURRENT USER =====
@@ -55,7 +64,39 @@ function clearCurrentUser() {
  * @returns {boolean} True if user is logged in
  */
 export function isAuthenticated() {
-    return !!getCurrentUser();
+    return !!getCurrentUser() && !!getToken();
+}
+
+// ===== API HELPER =====
+
+/**
+ * Make authenticated API request
+ * @param {string} endpoint - API endpoint
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Object>} API response
+ */
+async function apiRequest(endpoint, options = {}) {
+    const token = getToken();
+    const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers
+    };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Request failed' }));
+        throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    return response.json();
 }
 
 // ===== LOGIN =====
@@ -64,19 +105,25 @@ export function isAuthenticated() {
  * Authenticate user with email and password
  * @param {string} email - User email
  * @param {string} password - User password
- * @returns {Object} Result object with success status and user/error
+ * @returns {Promise<Object>} Result object with success status and user/error
  */
-export function login(email, password) {
-    const users = getUsers();
-    const user = users.find(u => u.email === email && u.password === password);
-    
-    if (user) {
-        setCurrentUser(user);
-        console.log('✅ Login successful:', user.name);
-        return { success: true, user };
+export async function login(email, password) {
+    try {
+        const data = await apiRequest('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+        });
+
+        // Save token and user
+        setToken(data.token);
+        setCurrentUser(data.user);
+
+        console.log('✅ Login successful:', data.user.name);
+        return { success: true, user: data.user };
+    } catch (error) {
+        console.error('❌ Login failed:', error);
+        return { success: false, error: error.message };
     }
-    
-    return { success: false, error: 'Invalid email or password' };
 }
 
 // ===== REGISTER =====
@@ -84,33 +131,29 @@ export function login(email, password) {
 /**
  * Register a new user
  * @param {Object} userData - User data {name, email, password}
- * @returns {Object} Result object with success status and user/error
+ * @returns {Promise<Object>} Result object with success status and user/error
  */
-export function register(userData) {
-    const users = getUsers();
-    
-    // Check if email already exists
-    if (users.find(u => u.email === userData.email)) {
-        return { success: false, error: 'Email already exists' };
+export async function register(userData) {
+    try {
+        const data = await apiRequest('/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+                name: userData.name,
+                email: userData.email,
+                password: userData.password
+            })
+        });
+
+        // Save token and user
+        setToken(data.token);
+        setCurrentUser(data.user);
+
+        console.log('✅ Registration successful:', data.user.name);
+        return { success: true, user: data.user };
+    } catch (error) {
+        console.error('❌ Registration failed:', error);
+        return { success: false, error: error.message };
     }
-    
-    // Create new user
-    const newUser = {
-        id: Date.now(),
-        name: userData.name,
-        email: userData.email,
-        password: userData.password,
-        createdAt: new Date().toISOString()
-    };
-    
-    users.push(newUser);
-    saveUsers(users);
-    
-    // Auto login
-    setCurrentUser(newUser);
-    console.log('✅ Registration successful:', newUser.name);
-    
-    return { success: true, user: newUser };
 }
 
 // ===== LOGOUT =====
@@ -120,6 +163,7 @@ export function register(userData) {
  * @param {boolean} redirectToLogin - Whether to redirect to login page (default: true)
  */
 export function logout(redirectToLogin = true) {
+    clearToken();
     clearCurrentUser();
     console.log('✅ Logout successful');
 
@@ -212,77 +256,149 @@ export function checkIfLoggedIn() {
     return false;
 }
 
-// ===== UPDATE USER =====
+// ===== DEPRECATED (for backward compatibility) =====
 
 /**
- * Update user information
- * @param {Object} updatedUser - Updated user object
- * @returns {boolean} True if update successful
+ * @deprecated Use API-based authentication instead
  */
-export function updateUser(updatedUser) {
+export function getUsers() {
+    console.warn('⚠️ getUsers() is deprecated - users are now managed by the backend API');
+    return [];
+}
+
+/**
+ * @deprecated Use API-based authentication instead
+ */
+export function saveUsers() {
+    console.warn('⚠️ saveUsers() is deprecated - users are now managed by the backend API');
+}
+
+/**
+ * @deprecated Use API-based authentication instead
+ */
+export function updateUser() {
+    console.warn('⚠️ updateUser() is deprecated - users are now managed by the backend API');
+    throw new Error('Not implemented - use backend API');
+}
+
+/**
+ * @deprecated Use API-based authentication instead
+ */
+export function changePassword() {
+    console.warn('⚠️ changePassword() is deprecated - users are now managed by the backend API');
+    throw new Error('Not implemented - use backend API');
+}
+
+// ===== USER PROFILE MANAGEMENT (API-BASED) =====
+
+/**
+ * Get current user profile
+ * @returns {Promise<Object>} User profile data
+ */
+export async function getCurrentUserProfile() {
     try {
-        const users = getUsers();
-        const index = users.findIndex(u => u.id === updatedUser.id);
+        const response = await apiRequest('/api/users/me', {
+            method: 'GET'
+        });
 
-        if (index === -1) {
-            throw new Error('User not found');
-        }
+        console.log('✅ User profile fetched');
+        return response;
+    } catch (error) {
+        console.error('❌ Error fetching user profile:', error);
+        throw error;
+    }
+}
 
-        // Update in users array
-        users[index] = updatedUser;
-        saveUsers(users);
+/**
+ * Update user profile (name and/or profile picture)
+ * @param {Object} profileData - { name?, profilePicture? }
+ * @returns {Promise<Object>} Updated user data
+ */
+export async function updateUserProfile(profileData) {
+    try {
+        const response = await apiRequest('/api/users/me', {
+            method: 'PUT',
+            body: JSON.stringify(profileData)
+        });
+
+        console.log('✅ User profile updated');
 
         // Update current user in localStorage
-        setCurrentUser(updatedUser);
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            const updatedUser = { ...currentUser, ...response };
+            localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
+        }
 
-        console.log('✅ User updated successfully');
-        return true;
+        return response;
     } catch (error) {
-        console.error('❌ Error updating user:', error);
+        console.error('❌ Error updating user profile:', error);
         throw error;
     }
 }
-
-// ===== CHANGE PASSWORD =====
 
 /**
- * Change user password
- * @param {string} currentPassword - Current password
- * @param {string} newPassword - New password
- * @returns {boolean} True if password changed successfully
+ * Update profile picture
+ * @param {string} profilePicture - Base64 encoded image data
+ * @returns {Promise<Object>} Updated user data
  */
-export function changePassword(currentPassword, newPassword) {
+export async function updateProfilePicture(profilePicture) {
     try {
+        const response = await apiRequest('/api/users/me/profile-picture', {
+            method: 'PUT',
+            body: JSON.stringify({ profilePicture })
+        });
+
+        console.log('✅ Profile picture updated');
+
+        // Update current user in localStorage
         const currentUser = getCurrentUser();
-
-        if (!currentUser) {
-            throw new Error('User not logged in');
+        if (currentUser) {
+            const updatedUser = { ...currentUser, ...response };
+            localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
         }
 
-        // Verify current password
-        if (currentUser.password !== currentPassword) {
-            throw new Error('Current password is incorrect');
-        }
-
-        // Update password
-        currentUser.password = newPassword;
-
-        // Save changes
-        const users = getUsers();
-        const index = users.findIndex(u => u.id === currentUser.id);
-
-        if (index === -1) {
-            throw new Error('User not found');
-        }
-
-        users[index] = currentUser;
-        saveUsers(users);
-        setCurrentUser(currentUser);
-
-        console.log('✅ Password changed successfully');
-        return true;
+        return response;
     } catch (error) {
-        console.error('❌ Error changing password:', error);
+        console.error('❌ Error updating profile picture:', error);
         throw error;
     }
 }
+
+/**
+ * Update username/name
+ * @param {string} name - New name
+ * @returns {Promise<Object>} Updated user data
+ */
+export async function updateUserName(name) {
+    try {
+        const response = await apiRequest('/api/users/me/name', {
+            method: 'PUT',
+            body: JSON.stringify({ name })
+        });
+
+        console.log('✅ User name updated');
+
+        // Update current user in localStorage
+        const currentUser = getCurrentUser();
+        if (currentUser) {
+            const updatedUser = { ...currentUser, ...response };
+            localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(updatedUser));
+        }
+
+        return response;
+    } catch (error) {
+        console.error('❌ Error updating user name:', error);
+        throw error;
+    }
+}
+
+// ===== EXPORT API HELPER FOR OTHER SERVICES =====
+
+/**
+ * Make authenticated API request (exported for use in other services)
+ * @param {string} endpoint - API endpoint
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Object>} API response
+ */
+export { apiRequest };

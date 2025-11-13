@@ -1,7 +1,6 @@
 // SharedTasksService.js - Shared Tasks Management
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
-import { getCurrentUser } from './AuthService.js';
-import { notifyTaskShared, notifyTaskUpdated } from './NotificationsService.js';
+import { getCurrentUser, apiRequest } from './AuthService.js';
 
 // ===== USER ROLES =====
 export const SHARED_TASK_ROLES = {
@@ -10,10 +9,12 @@ export const SHARED_TASK_ROLES = {
 };
 
 // ===== GET ALL SHARED TASKS =====
-export function getAllSharedTasks() {
+export async function getAllSharedTasks() {
     try {
-        const sharedTasks = localStorage.getItem(STORAGE_KEYS.SHARED_TASKS) || '[]';
-        return JSON.parse(sharedTasks);
+        const data = await apiRequest('/sharedtasks', {
+            method: 'GET'
+        });
+        return data;
     } catch (error) {
         console.error('Error loading shared tasks:', error);
         return [];
@@ -21,41 +22,23 @@ export function getAllSharedTasks() {
 }
 
 // ===== GET SHARED TASKS FOR CURRENT USER =====
-export function getMySharedTasks() {
+export async function getMySharedTasks() {
     try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) return [];
-
-        const allSharedTasks = getAllSharedTasks();
-
-        // Return tasks where user is owner or participant
-        return allSharedTasks.filter(st =>
-            st.ownerId === currentUser.id ||
-            st.sharedWith.some(p => p.userId === currentUser.id)
-        );
+        // Backend already filters for current user
+        return await getAllSharedTasks();
     } catch (error) {
         console.error('Error loading my shared tasks:', error);
         return [];
     }
 }
 
-// ===== GET SHARED TASK BY ID =====
-export function getSharedTaskById(sharedTaskId) {
-    try {
-        const allSharedTasks = getAllSharedTasks();
-        return allSharedTasks.find(st => st.id === sharedTaskId);
-    } catch (error) {
-        console.error('Error getting shared task:', error);
-        return null;
-    }
-}
-
 // ===== GET SHARED TASK BY TASK ID =====
-export function getSharedTaskByTaskId(taskId) {
+export async function getSharedTaskByTaskId(taskId) {
     try {
-        const allSharedTasks = getAllSharedTasks();
-        const found = allSharedTasks.find(st => st.taskId === taskId);
-        return found || null;
+        const data = await apiRequest(`/sharedtasks/task/${taskId}`, {
+            method: 'GET'
+        });
+        return data;
     } catch (error) {
         console.error('Error getting shared task by task ID:', error);
         return null;
@@ -63,8 +46,8 @@ export function getSharedTaskByTaskId(taskId) {
 }
 
 // ===== CHECK IF TASK IS SHARED =====
-export function isTaskShared(taskId) {
-    const sharedTask = getSharedTaskByTaskId(taskId);
+export async function isTaskShared(taskId) {
+    const sharedTask = await getSharedTaskByTaskId(taskId);
     return sharedTask !== null && sharedTask !== undefined;
 }
 
@@ -83,68 +66,17 @@ export function checkPermission(sharedTask, userId) {
 }
 
 // ===== SHARE TASK =====
-export function shareTask(taskId, taskTitle, userIds) {
+export async function shareTask(taskId, taskTitle, userIds) {
     try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) {
-            throw new Error('User not logged in');
-        }
-
-        // Check if task is already shared
-        const existingSharedTask = getSharedTaskByTaskId(taskId);
-        if (existingSharedTask) {
-            throw new Error('Task is already shared. Use addParticipants instead.');
-        }
-
-        // Get user information for participants
-        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-        const sharedWith = userIds.map(userId => {
-            const user = users.find(u => u.id === userId);
-            if (!user) return null;
-
-            return {
-                userId: user.id,
-                username: user.username,
-                email: user.email,
-                role: SHARED_TASK_ROLES.EDITOR,
-                addedAt: new Date().toISOString()
-            };
-        }).filter(p => p !== null);
-
-        if (sharedWith.length === 0) {
-            throw new Error('No valid users to share with');
-        }
-
-        // Create shared task
-        const sharedTask = {
-            id: Date.now(),
-            taskId: taskId,
-            ownerId: currentUser.id,
-            ownerUsername: currentUser.username,
-            sharedWith: sharedWith,
-            permissions: {
-                canEdit: true,
-                canAddSubtasks: true,
-                canShare: true,
-                canDelete: false // Only owner can delete
-            },
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            lastEditedBy: currentUser.username
-        };
-
-        // Save to storage
-        const allSharedTasks = getAllSharedTasks();
-        allSharedTasks.push(sharedTask);
-        localStorage.setItem(STORAGE_KEYS.SHARED_TASKS, JSON.stringify(allSharedTasks));
-
-        // Send notifications to all participants
-        sharedWith.forEach(participant => {
-            notifyTaskShared(participant.userId, taskTitle, currentUser.username);
+        const data = await apiRequest('/sharedtasks/share', {
+            method: 'POST',
+            body: JSON.stringify({
+                taskId: parseInt(taskId),
+                userIds: userIds
+            })
         });
-
-        console.log('✅ Task shared successfully:', sharedTask);
-        return sharedTask;
+        console.log('✅ Task shared successfully:', data);
+        return data;
     } catch (error) {
         console.error('❌ Error sharing task:', error);
         throw error;
@@ -152,67 +84,16 @@ export function shareTask(taskId, taskTitle, userIds) {
 }
 
 // ===== ADD PARTICIPANTS TO SHARED TASK =====
-export function addParticipants(taskId, taskTitle, userIds) {
+export async function addParticipants(sharedTaskId, userIds) {
     try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) {
-            throw new Error('User not logged in');
-        }
-
-        const sharedTask = getSharedTaskByTaskId(taskId);
-        if (!sharedTask) {
-            throw new Error('Task is not shared');
-        }
-
-        // Check permission
-        if (!checkPermission(sharedTask, currentUser.id)) {
-            throw new Error('You do not have permission to add participants');
-        }
-
-        // Get user information
-        const users = JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
-        const newParticipants = userIds.map(userId => {
-            // Skip if already shared with this user
-            if (sharedTask.sharedWith.some(p => p.userId === userId)) {
-                return null;
-            }
-
-            const user = users.find(u => u.id === userId);
-            if (!user) return null;
-
-            return {
-                userId: user.id,
-                username: user.username,
-                email: user.email,
-                role: SHARED_TASK_ROLES.EDITOR,
-                addedAt: new Date().toISOString()
-            };
-        }).filter(p => p !== null);
-
-        if (newParticipants.length === 0) {
-            throw new Error('No new participants to add');
-        }
-
-        // Add participants
-        sharedTask.sharedWith.push(...newParticipants);
-        sharedTask.updatedAt = new Date().toISOString();
-        sharedTask.lastEditedBy = currentUser.username;
-
-        // Save to storage
-        const allSharedTasks = getAllSharedTasks();
-        const index = allSharedTasks.findIndex(st => st.id === sharedTask.id);
-        if (index !== -1) {
-            allSharedTasks[index] = sharedTask;
-            localStorage.setItem(STORAGE_KEYS.SHARED_TASKS, JSON.stringify(allSharedTasks));
-        }
-
-        // Send notifications
-        newParticipants.forEach(participant => {
-            notifyTaskShared(participant.userId, taskTitle, currentUser.username);
+        const data = await apiRequest(`/sharedtasks/${sharedTaskId}/participants`, {
+            method: 'POST',
+            body: JSON.stringify({
+                userIds: userIds
+            })
         });
-
         console.log('✅ Participants added successfully');
-        return sharedTask;
+        return data;
     } catch (error) {
         console.error('❌ Error adding participants:', error);
         throw error;
@@ -220,38 +101,13 @@ export function addParticipants(taskId, taskTitle, userIds) {
 }
 
 // ===== REMOVE PARTICIPANT FROM SHARED TASK =====
-export function removeParticipant(taskId, userId) {
+export async function removeParticipant(sharedTaskId, userId) {
     try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) {
-            throw new Error('User not logged in');
-        }
-
-        const sharedTask = getSharedTaskByTaskId(taskId);
-        if (!sharedTask) {
-            throw new Error('Task is not shared');
-        }
-
-        // Only owner can remove participants
-        if (sharedTask.ownerId !== currentUser.id && userId !== currentUser.id) {
-            throw new Error('Only owner can remove participants');
-        }
-
-        // Remove participant
-        sharedTask.sharedWith = sharedTask.sharedWith.filter(p => p.userId !== userId);
-        sharedTask.updatedAt = new Date().toISOString();
-        sharedTask.lastEditedBy = currentUser.username;
-
-        // Save to storage
-        const allSharedTasks = getAllSharedTasks();
-        const index = allSharedTasks.findIndex(st => st.id === sharedTask.id);
-        if (index !== -1) {
-            allSharedTasks[index] = sharedTask;
-            localStorage.setItem(STORAGE_KEYS.SHARED_TASKS, JSON.stringify(allSharedTasks));
-        }
-
+        await apiRequest(`/sharedtasks/${sharedTaskId}/participants/${userId}`, {
+            method: 'DELETE'
+        });
         console.log('✅ Participant removed successfully');
-        return sharedTask;
+        return true;
     } catch (error) {
         console.error('❌ Error removing participant:', error);
         throw error;
@@ -259,14 +115,14 @@ export function removeParticipant(taskId, userId) {
 }
 
 // ===== LEAVE SHARED TASK =====
-export function leaveSharedTask(taskId) {
+export async function leaveSharedTask(sharedTaskId) {
     try {
         const currentUser = getCurrentUser();
         if (!currentUser) {
             throw new Error('User not logged in');
         }
 
-        return removeParticipant(taskId, currentUser.id);
+        return await removeParticipant(sharedTaskId, currentUser.id);
     } catch (error) {
         console.error('❌ Error leaving shared task:', error);
         throw error;
@@ -274,28 +130,11 @@ export function leaveSharedTask(taskId) {
 }
 
 // ===== UNSHARE TASK (OWNER ONLY) =====
-export function unshareTask(taskId) {
+export async function unshareTask(taskId) {
     try {
-        const currentUser = getCurrentUser();
-        if (!currentUser) {
-            throw new Error('User not logged in');
-        }
-
-        const sharedTask = getSharedTaskByTaskId(taskId);
-        if (!sharedTask) {
-            throw new Error('Task is not shared');
-        }
-
-        // Only owner can unshare
-        if (sharedTask.ownerId !== currentUser.id) {
-            throw new Error('Only owner can unshare tasks');
-        }
-
-        // Remove from storage
-        const allSharedTasks = getAllSharedTasks();
-        const updatedSharedTasks = allSharedTasks.filter(st => st.taskId !== taskId);
-        localStorage.setItem(STORAGE_KEYS.SHARED_TASKS, JSON.stringify(updatedSharedTasks));
-
+        await apiRequest(`/sharedtasks/task/${taskId}`, {
+            method: 'DELETE'
+        });
         console.log('✅ Task unshared successfully');
         return true;
     } catch (error) {
@@ -305,57 +144,24 @@ export function unshareTask(taskId) {
 }
 
 // ===== UPDATE LAST EDITED =====
-export function updateLastEdited(taskId, username) {
+export async function updateLastEdited(sharedTaskId) {
     try {
-        const sharedTask = getSharedTaskByTaskId(taskId);
-        if (!sharedTask) return;
-
-        sharedTask.updatedAt = new Date().toISOString();
-        sharedTask.lastEditedBy = username;
-
-        // Save to storage
-        const allSharedTasks = getAllSharedTasks();
-        const index = allSharedTasks.findIndex(st => st.id === sharedTask.id);
-        if (index !== -1) {
-            allSharedTasks[index] = sharedTask;
-            localStorage.setItem(STORAGE_KEYS.SHARED_TASKS, JSON.stringify(allSharedTasks));
-        }
-
-        // Notify all participants except the editor
-        const currentUser = getCurrentUser();
-        if (currentUser) {
-            sharedTask.sharedWith.forEach(participant => {
-                if (participant.userId !== currentUser.id) {
-                    // Get task title
-                    const tasks = JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS) || '[]');
-                    const task = tasks.find(t => t.id === taskId);
-                    if (task) {
-                        notifyTaskUpdated(participant.userId, task.title, username);
-                    }
-                }
-            });
-
-            // Also notify owner if they're not the editor
-            if (sharedTask.ownerId !== currentUser.id) {
-                const tasks = JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS) || '[]');
-                const task = tasks.find(t => t.id === taskId);
-                if (task) {
-                    notifyTaskUpdated(sharedTask.ownerId, task.title, username);
-                }
-            }
-        }
+        await apiRequest(`/sharedtasks/${sharedTaskId}/lastedited`, {
+            method: 'PUT'
+        });
+        console.log('✅ Last edited updated');
     } catch (error) {
         console.error('❌ Error updating last edited:', error);
     }
 }
 
 // ===== GET PARTICIPANTS =====
-export function getParticipants(taskId) {
+export async function getParticipants(taskId) {
     try {
-        const sharedTask = getSharedTaskByTaskId(taskId);
+        const sharedTask = await getSharedTaskByTaskId(taskId);
         if (!sharedTask) return [];
 
-        return sharedTask.sharedWith;
+        return sharedTask.participants || [];
     } catch (error) {
         console.error('Error getting participants:', error);
         return [];
@@ -363,20 +169,13 @@ export function getParticipants(taskId) {
 }
 
 // ===== GET ALL PARTICIPANTS INCLUDING OWNER =====
-export function getAllParticipants(taskId) {
+export async function getAllParticipants(taskId) {
     try {
-        const sharedTask = getSharedTaskByTaskId(taskId);
+        const sharedTask = await getSharedTaskByTaskId(taskId);
         if (!sharedTask) return [];
 
-        // Include owner
-        const owner = {
-            userId: sharedTask.ownerId,
-            username: sharedTask.ownerUsername,
-            role: SHARED_TASK_ROLES.OWNER,
-            addedAt: sharedTask.createdAt
-        };
-
-        return [owner, ...sharedTask.sharedWith];
+        // Backend already includes owner in participants
+        return sharedTask.participants || [];
     } catch (error) {
         console.error('Error getting all participants:', error);
         return [];
@@ -384,9 +183,9 @@ export function getAllParticipants(taskId) {
 }
 
 // ===== CHECK IF USER IS OWNER =====
-export function isOwner(taskId, userId) {
+export async function isOwner(taskId, userId) {
     try {
-        const sharedTask = getSharedTaskByTaskId(taskId);
+        const sharedTask = await getSharedTaskByTaskId(taskId);
         if (!sharedTask) return false;
 
         return sharedTask.ownerId === userId;
@@ -397,6 +196,7 @@ export function isOwner(taskId, userId) {
 }
 
 // ===== GET SHARED TASKS COUNT =====
-export function getSharedTasksCount() {
-    return getMySharedTasks().length;
+export async function getSharedTasksCount() {
+    const tasks = await getMySharedTasks();
+    return tasks.length;
 }

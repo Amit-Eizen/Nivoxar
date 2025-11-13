@@ -9,8 +9,13 @@ class Router {
         this.currentRoute = null;
         this.beforeNavigateCallbacks = [];
         this.afterNavigateCallbacks = [];
+        this.isNavigating = false;
 
         console.log('🚀 Router: Initializing...');
+
+        // Get global loading element
+        this.globalLoading = document.getElementById('globalLoading');
+        this.appContainer = document.getElementById('app');
 
         // Listen to browser navigation events
         window.addEventListener('popstate', () => this.handlePopState());
@@ -36,11 +41,25 @@ class Router {
      * @param {boolean} replace - Replace history instead of push
      */
     async navigate(path, replace = false) {
+        // Prevent multiple simultaneous navigations
+        if (this.isNavigating) {
+            console.log('⚠️ Router: Navigation already in progress');
+            return;
+        }
+
+        this.isNavigating = true;
+
         // Run before navigate callbacks
         for (const callback of this.beforeNavigateCallbacks) {
             const shouldContinue = await callback(path);
-            if (shouldContinue === false) return;
+            if (shouldContinue === false) {
+                this.isNavigating = false;
+                return;
+            }
         }
+
+        // Show loading state
+        this.showLoading();
 
         // Update browser history
         if (replace) {
@@ -49,13 +68,21 @@ class Router {
             window.history.pushState({ path }, '', path);
         }
 
+        // Small delay for smooth transition
+        await new Promise(resolve => setTimeout(resolve, 150));
+
         // Render the route
         await this.renderRoute(path);
+
+        // Hide loading state
+        this.hideLoading();
 
         // Run after navigate callbacks
         for (const callback of this.afterNavigateCallbacks) {
             await callback(path);
         }
+
+        this.isNavigating = false;
     }
 
     /**
@@ -64,6 +91,12 @@ class Router {
      */
     async renderRoute(path) {
         this.currentRoute = path;
+
+        // Add exit animation to current content
+        if (this.appContainer) {
+            this.appContainer.classList.add('page-exit');
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
 
         // Cleanup before rendering new route
         this.cleanup();
@@ -81,6 +114,11 @@ class Router {
             // Route not found - redirect to dashboard
             console.warn(`Route ${path} not found, redirecting to /dashboard`);
             this.navigate('/dashboard', true);
+        }
+
+        // Remove exit animation class
+        if (this.appContainer) {
+            this.appContainer.classList.remove('page-exit');
         }
     }
 
@@ -178,6 +216,46 @@ class Router {
                     <button onclick="window.location.href='/dashboard'">Go to Dashboard</button>
                 </div>
             `;
+        }
+    }
+
+    /**
+     * Show global loading state with smooth animation
+     */
+    showLoading() {
+        if (this.globalLoading) {
+            this.globalLoading.classList.add('active');
+            this.globalLoading.style.display = 'flex';
+        }
+
+        if (this.appContainer) {
+            this.appContainer.classList.add('page-transitioning');
+        }
+    }
+
+    /**
+     * Hide global loading state with smooth animation
+     */
+    hideLoading() {
+        if (this.appContainer) {
+            this.appContainer.classList.remove('page-transitioning');
+            this.appContainer.classList.add('page-enter');
+
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                this.appContainer?.classList.remove('page-enter');
+            }, 300);
+        }
+
+        if (this.globalLoading) {
+            this.globalLoading.classList.remove('active');
+
+            // Hide after transition completes
+            setTimeout(() => {
+                if (this.globalLoading && !this.globalLoading.classList.contains('active')) {
+                    this.globalLoading.style.display = 'none';
+                }
+            }, 200);
         }
     }
 

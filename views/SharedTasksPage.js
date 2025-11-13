@@ -42,7 +42,7 @@ function initializeSharedTasksPage() {
 }
 
 // ===== LOAD SHARED TASKS =====
-function loadSharedTasks() {
+async function loadSharedTasks() {
     showLoading();
 
     try {
@@ -51,7 +51,7 @@ function loadSharedTasks() {
         pageState.allTasks = allTasks;
 
         // Get shared tasks
-        pageState.sharedTasks = getMySharedTasks();
+        pageState.sharedTasks = await getMySharedTasks();
 
         // Filter tasks
         applyFilter(pageState.currentFilter);
@@ -229,11 +229,11 @@ function updateStats() {
 }
 
 // ===== OPEN TASK DETAILS =====
-function openTaskDetails(taskId) {
+async function openTaskDetails(taskId) {
     pageState.currentTaskId = taskId;
 
     const task = pageState.allTasks.find(t => t.id === taskId);
-    const sharedTask = getSharedTaskByTaskId(taskId);
+    const sharedTask = await getSharedTaskByTaskId(taskId);
 
     if (!task || !sharedTask) {
         showError('Task not found');
@@ -253,7 +253,7 @@ function openTaskDetails(taskId) {
     renderModalSubtasks(task.subTasks || []);
 
     // Render collaborators
-    const participants = getAllParticipants(taskId);
+    const participants = await getAllParticipants(taskId);
     renderCollaborators(participants);
 
     // Show/hide action buttons
@@ -305,9 +305,9 @@ function renderCollaborators(participants) {
 }
 
 // ===== MANAGE PARTICIPANTS =====
-function openManageParticipants() {
+async function openManageParticipants() {
     const taskId = pageState.currentTaskId;
-    const sharedTask = getSharedTaskByTaskId(taskId);
+    const sharedTask = await getSharedTaskByTaskId(taskId);
 
     if (!sharedTask) return;
 
@@ -364,7 +364,7 @@ function renderCurrentParticipants(sharedTask) {
 }
 
 // ===== ADD PARTICIPANT =====
-function handleAddParticipant() {
+async function handleAddParticipant() {
     const friendsSelect = document.getElementById('friendsSelect');
     const selectedUserId = parseInt(friendsSelect.value);
 
@@ -377,12 +377,12 @@ function handleAddParticipant() {
     const task = pageState.allTasks.find(t => t.id === taskId);
 
     try {
-        addParticipants(taskId, task.title, [selectedUserId]);
+        await addParticipants(taskId, task.title, [selectedUserId]);
         showSuccess('Participant added successfully');
 
         // Refresh
-        loadSharedTasks();
-        openManageParticipants();
+        await loadSharedTasks();
+        await openManageParticipants();
     } catch (error) {
         console.error('❌ Error adding participant:', error);
         showError(error.message);
@@ -390,18 +390,18 @@ function handleAddParticipant() {
 }
 
 // ===== REMOVE PARTICIPANT =====
-function handleRemoveParticipant(userId) {
+async function handleRemoveParticipant(userId) {
     if (!confirm('Remove this participant?')) return;
 
     const taskId = pageState.currentTaskId;
 
     try {
-        removeParticipant(taskId, userId);
+        await removeParticipant(taskId, userId);
         showSuccess('Participant removed');
 
         // Refresh
-        loadSharedTasks();
-        openManageParticipants();
+        await loadSharedTasks();
+        await openManageParticipants();
     } catch (error) {
         console.error('❌ Error removing participant:', error);
         showError(error.message);
@@ -409,18 +409,18 @@ function handleRemoveParticipant(userId) {
 }
 
 // ===== LEAVE TASK =====
-function handleLeaveTask() {
+async function handleLeaveTask() {
     if (!confirm('Are you sure you want to leave this shared task?')) return;
 
     const taskId = pageState.currentTaskId;
 
     try {
-        leaveSharedTask(taskId);
+        await leaveSharedTask(taskId);
         showSuccess('You left the task');
 
         // Close modal and refresh
         closeTaskDetailsModal();
-        loadSharedTasks();
+        await loadSharedTasks();
     } catch (error) {
         console.error('❌ Error leaving task:', error);
         showError(error.message);
@@ -428,18 +428,18 @@ function handleLeaveTask() {
 }
 
 // ===== UNSHARE TASK =====
-function handleUnshareTask() {
+async function handleUnshareTask() {
     if (!confirm('This will remove all participants and unshare the task. Continue?')) return;
 
     const taskId = pageState.currentTaskId;
 
     try {
-        unshareTask(taskId);
+        await unshareTask(taskId);
         showSuccess('Task unshared successfully');
 
         // Close modal and refresh
         closeTaskDetailsModal();
-        loadSharedTasks();
+        await loadSharedTasks();
     } catch (error) {
         console.error('❌ Error unsharing task:', error);
         showError(error.message);

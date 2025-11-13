@@ -1,5 +1,9 @@
 // ProfilePage.js - Profile Management
-import { updateUser, changePassword } from '../services/AuthService.js';
+import {
+    getCurrentUser,
+    updateProfilePicture,
+    updateUserName
+} from '../services/AuthService.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 import {
     getAllFriends,
@@ -33,7 +37,7 @@ const profileState = {
 };
 
 // ===== INITIALIZATION =====
-function initializeProfilePage() {
+async function initializeProfilePage() {
     console.log('🚀 Initializing Profile Page...');
 
     // Check authentication
@@ -49,9 +53,9 @@ function initializeProfilePage() {
 
     // Load data
     loadUserInfo();
-    loadNotifications();
-    loadFriendRequests();
-    loadFriends();
+    await loadNotifications();
+    await loadFriendRequests();
+    await loadFriends();
 
     // Setup event listeners
     setupEventListeners();
@@ -87,9 +91,9 @@ function loadUserInfo() {
 }
 
 // ===== LOAD NOTIFICATIONS =====
-function loadNotifications() {
-    profileState.notifications = getAllNotifications();
-    const unreadCount = getUnreadCount();
+async function loadNotifications() {
+    profileState.notifications = await getAllNotifications();
+    const unreadCount = await getUnreadCount();
 
     // Update badge
     const badge = document.getElementById('notificationCount');
@@ -154,8 +158,8 @@ function getNotificationIcon(type) {
 }
 
 // ===== LOAD FRIEND REQUESTS =====
-function loadFriendRequests() {
-    profileState.friendRequests = getFriendRequests();
+async function loadFriendRequests() {
+    profileState.friendRequests = await getFriendRequests();
     const incomingCount = profileState.friendRequests.incoming.length;
 
     // Update badge
@@ -212,8 +216,8 @@ function renderFriendRequests() {
 }
 
 // ===== LOAD FRIENDS =====
-function loadFriends() {
-    profileState.friends = getAllFriends();
+async function loadFriends() {
+    profileState.friends = await getAllFriends();
 
     // Update count badge
     const count = getFriendsCount();
@@ -320,15 +324,15 @@ function handleProfilePictureChange(event) {
     }
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         const imageData = e.target.result;
         const profilePic = document.getElementById('profilePicture');
         profilePic.innerHTML = `<img src="${imageData}" alt="Profile Picture">`;
 
         // Save to user profile
         try {
-            profileState.currentUser.profilePicture = imageData;
-            updateUser(profileState.currentUser);
+            const updatedUser = await updateProfilePicture(imageData);
+            profileState.currentUser = updatedUser;
 
             // Refresh navbar to show new picture
             initNavbar();
@@ -343,7 +347,7 @@ function handleProfilePictureChange(event) {
 }
 
 // ===== USERNAME EDIT =====
-function handleUsernameEdit() {
+async function handleUsernameEdit() {
     const input = document.getElementById('username');
     const btn = document.getElementById('editUsernameBtn');
 
@@ -365,8 +369,8 @@ function handleUsernameEdit() {
         }
 
         try {
-            profileState.currentUser.username = newUsername;
-            updateUser(profileState.currentUser);
+            const updatedUser = await updateUserName(newUsername);
+            profileState.currentUser = updatedUser;
 
             input.setAttribute('readonly', true);
             btn.innerHTML = '<i class="fas fa-edit"></i>';
@@ -562,7 +566,7 @@ export async function loadProfilePage() {
     app.innerHTML = getPageHTML();
 
     // Initialize Profile
-    initializeProfilePage();
+    await initializeProfilePage();
 }
 
 /**

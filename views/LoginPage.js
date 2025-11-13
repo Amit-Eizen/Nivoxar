@@ -144,9 +144,9 @@ function initializeLoginPage() {
         try {
             // Simulate delay
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             // Attempt login using AuthService
-            const result = login(email, password);
+            const result = await login(email, password);
 
             if (result.success) {
                 // Redirect to dashboard - SPA or MPA mode
@@ -224,9 +224,9 @@ function initializeLoginPage() {
         try {
             // Simulate delay
             await new Promise(resolve => setTimeout(resolve, 500));
-            
+
             // Attempt registration using AuthService
-            const result = register({ name, email, password });
+            const result = await register({ name, email, password });
 
             if (result.success) {
                 // Redirect to dashboard - SPA or MPA mode
