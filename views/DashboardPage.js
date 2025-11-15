@@ -51,7 +51,7 @@ async function initializeDashboard() {
     await getAllCategories();
 
     loadUserData();
-    initTaskManager(); // Loads from localStorage
+    await initTaskManager(); // Loads from API
     initSubTasksManager();
     setupAllEventListeners();
 

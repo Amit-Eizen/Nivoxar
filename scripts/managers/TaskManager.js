@@ -101,32 +101,6 @@ export async function createTask(taskData) {
             console.log('✅ Task created locally:', newTask);
             return newTask;
         }
-    } else {
-        // localStorage-only mode
-        const newTask = {
-            id: Date.now(),
-            title: taskData.title,
-            description: taskData.description || '',
-            category: taskData.category || '',
-            priority: parseInt(taskData.priority) || 2,
-            dueDate: taskData.dueDate || null,
-            dueTime: taskData.dueTime || null,
-            completed: false,
-            createdAt: new Date().toISOString(),
-            subTasks: taskData.subTasks || [],
-            recurring: taskData.recurring || { enabled: false }
-        };
-
-        dashboardState.tasks.unshift(newTask);
-        dashboardState.filteredTasks = [...dashboardState.tasks];
-        saveTasksToLocalStorage(dashboardState.tasks);
-
-        if (newTask.category) {
-            await incrementTaskCount(newTask.category);
-        }
-
-        console.log('✅ Task created locally:', newTask);
-        return newTask;
     }
 }
 
@@ -185,23 +159,6 @@ export async function updateTask(taskId, updates) {
 
             console.log('✅ Task updated locally:', taskId);
         }
-    } else {
-        // localStorage-only mode
-        dashboardState.tasks[taskIndex] = {
-            ...oldTask,
-            ...updates,
-            updatedAt: new Date().toISOString()
-        };
-
-        dashboardState.filteredTasks = [...dashboardState.tasks];
-        saveTasksToLocalStorage(dashboardState.tasks);
-
-        if (oldCategory !== newCategory) {
-            if (oldCategory) await decrementTaskCount(oldCategory);
-            if (newCategory) await incrementTaskCount(newCategory);
-        }
-
-        console.log('✅ Task updated locally:', taskId);
     }
 }
 
@@ -242,17 +199,6 @@ export async function deleteTask(taskId) {
 
             console.log('✅ Task deleted locally:', taskId);
         }
-    } else {
-        // localStorage-only mode
-        dashboardState.tasks.splice(taskIndex, 1);
-        dashboardState.filteredTasks = [...dashboardState.tasks];
-        saveTasksToLocalStorage(dashboardState.tasks);
-
-        if (categoryId) {
-            await decrementTaskCount(categoryId);
-        }
-
-        console.log('✅ Task deleted locally:', taskId);
     }
 }
 
@@ -286,13 +232,6 @@ export async function toggleTaskCompletion(taskId) {
             saveTasksToLocalStorage(dashboardState.tasks);
             console.log('✅ Task toggled locally:', taskId, task.completed);
         }
-    } else {
-        // localStorage-only mode
-        task.completed = newCompletedState;
-        task.completedAt = newCompletedState ? new Date().toISOString() : null;
-
-        saveTasksToLocalStorage(dashboardState.tasks);
-        console.log('✅ Task toggled locally:', taskId, task.completed);
     }
 }
 

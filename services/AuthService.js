@@ -2,9 +2,10 @@
 // Handles all user authentication and authorization logic
 
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
+import { CONFIG } from '../config.js';
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = CONFIG.API_BASE_URL;
 
 // ===== TOKEN MANAGEMENT =====
 
@@ -256,39 +257,6 @@ export function checkIfLoggedIn() {
     return false;
 }
 
-// ===== DEPRECATED (for backward compatibility) =====
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function getUsers() {
-    console.warn('⚠️ getUsers() is deprecated - users are now managed by the backend API');
-    return [];
-}
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function saveUsers() {
-    console.warn('⚠️ saveUsers() is deprecated - users are now managed by the backend API');
-}
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function updateUser() {
-    console.warn('⚠️ updateUser() is deprecated - users are now managed by the backend API');
-    throw new Error('Not implemented - use backend API');
-}
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function changePassword() {
-    console.warn('⚠️ changePassword() is deprecated - users are now managed by the backend API');
-    throw new Error('Not implemented - use backend API');
-}
-
 // ===== USER PROFILE MANAGEMENT (API-BASED) =====
 
 /**
@@ -394,6 +362,30 @@ export async function updateUserName(name) {
         return response;
     } catch (error) {
         console.error('❌ Error updating user name:', error);
+        throw error;
+    }
+}
+
+/**
+ * Change user password
+ * @param {string} currentPassword - Current password
+ * @param {string} newPassword - New password
+ * @returns {Promise<Object>} Success response
+ */
+export async function changePassword(currentPassword, newPassword) {
+    try {
+        const response = await apiRequest('/users/me/password', {
+            method: 'PUT',
+            body: JSON.stringify({
+                CurrentPassword: currentPassword,
+                NewPassword: newPassword
+            })
+        });
+
+        console.log('✅ Password changed successfully');
+        return response;
+    } catch (error) {
+        console.error('❌ Error changing password:', error);
         throw error;
     }
 }

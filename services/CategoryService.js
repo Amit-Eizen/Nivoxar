@@ -392,18 +392,10 @@ export async function resetCategories() {
 export async function incrementTaskCount(categoryId) {
     if (!categoryId) return false;
 
-    const categories = await getAllCategories();
-    const category = categories.find(cat => cat.id === categoryId);
-    
-    if (!category) {
-        console.warn(`⚠️ Category not found: ${categoryId}`);
-        return false;
-    }
-    
-    category.taskCount = (category.taskCount || 0) + 1;
-    saveCategoriesLocally(categories);
-    
-    console.log(`✅ Incremented task count for ${category.name}: ${category.taskCount}`);
+    // Just clear cache - let backend handle the count
+    clearCategoriesCache();
+
+    console.log(`✅ Task count cache cleared for category: ${categoryId}`);
     return true;
 }
 
@@ -415,18 +407,10 @@ export async function incrementTaskCount(categoryId) {
 export async function decrementTaskCount(categoryId) {
     if (!categoryId) return false;
 
-    const categories = await getAllCategories();
-    const category = categories.find(cat => cat.id === categoryId);
-    
-    if (!category) {
-        console.warn(`⚠️ Category not found: ${categoryId}`);
-        return false;
-    }
-    
-    category.taskCount = Math.max(0, (category.taskCount || 0) - 1);
-    saveCategoriesLocally(categories);
-    
-    console.log(`✅ Decremented task count for ${category.name}: ${category.taskCount}`);
+    // Just clear cache - let backend handle the count
+    clearCategoriesCache();
+
+    console.log(`✅ Task count cache cleared for category: ${categoryId}`);
     return true;
 }
 
