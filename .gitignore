@@ -1,103 +1,19 @@
-# ===== ENVIRONMENT & SECRETS =====
+# ===== SECRETS & CONFIGURATION =====
 .env
 .env.local
 .env.*.local
-
-# All appsettings with secrets (Development, Production, Staging)
 appsettings.json
 appsettings.Development.json
 appsettings.Production.json
-appsettings.Staging.json
 
-# ===== .NET BUILD OUTPUT =====
+# ===== .NET BUILD =====
 bin/
 obj/
 *.user
-*.suo
-*.cache
-*.dll
-*.exe
-*.pdb
-*.vspscc
-*.vssscc
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
-[Bb]in/
-[Oo]bj/
-[Ll]og/
-[Ll]ogs/
 
-# ===== ENTITY FRAMEWORK =====
-Migrations/
-!Migrations/.gitkeep
-
-# ===== NODE.JS / FRONTEND =====
-node_modules/
-package-lock.json
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# ===== VISUAL STUDIO =====
-.vs/
+# ===== IDE =====
 .vscode/
-*.sln.docstates
-*.userprefs
-_ReSharper*/
-*.[Rr]e[Ss]harper
-*.DotSettings.user
-.idea/
-
-# ===== RIDER =====
-.idea/
-*.sln.iml
-
-# ===== OS FILES =====
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-Desktop.ini
-
-# ===== TEMPORARY FILES =====
-*.tmp
-*.temp
-*.swp
-*.swo
-*~
-
-# ===== DATABASE =====
-*.db
-*.sqlite
-*.sqlite3
+.vs/
 
 # ===== LOGS =====
-logs/
 *.log
-
-# ===== TESTING =====
-TestResults/
-*.trx
-
-# ===== PUBLISHED OUTPUT =====
-publish/
-*.pubxml
-*.publishproj
-
-# ===== BACKUP FILES =====
-*.bak
-*.backup
-
-# ===== OLD BACKEND (DEPRECATED) =====
-backend/
-api/bin/
-api/obj/
