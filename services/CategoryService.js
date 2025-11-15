@@ -12,6 +12,10 @@ const CONFIG = {
     storageKey: STORAGE_KEYS.CATEGORIES
 };
 
+// ===== CACHE =====
+let categoriesCache = null;
+let cacheLoadPromise = null; // To prevent multiple concurrent loads
+
 // ===== DEFAULT CATEGORIES =====
 const DEFAULT_CATEGORIES = [
     {
@@ -205,30 +209,63 @@ async function getCategoryByIdViaAPI(categoryId) {
     }
 }
 
-// ===== PUBLIC API (Auto-switches between localStorage/API) // 
+// ===== PUBLIC API (Auto-switches between localStorage/API) //
 
 /**
  * Get all categories
  * @returns {Promise<Array>} Array of category objects
  */
 export async function getAllCategories() {
-    if (CONFIG.useAPI) {
-        return await getCategoriesFromAPI();
-    } else {
-        return getCategoriesFromLocalStorage();
+    // Return cached data if available
+    if (categoriesCache !== null) {
+        return categoriesCache;
     }
+
+    // If already loading, wait for that promise
+    if (cacheLoadPromise !== null) {
+        return await cacheLoadPromise;
+    }
+
+    // Start loading
+    cacheLoadPromise = (async () => {
+        try {
+            let categories;
+            if (CONFIG.useAPI) {
+                categories = await getCategoriesFromAPI();
+            } else {
+                categories = getCategoriesFromLocalStorage();
+            }
+            categoriesCache = categories;
+            return categories;
+        } finally {
+            cacheLoadPromise = null;
+        }
+    })();
+
+    return await cacheLoadPromise;
 }
 
 /**
- * Get all categories (synchronous - only for localStorage mode)
+ * Clear categories cache (call after create/update/delete)
+ */
+export function clearCategoriesCache() {
+    categoriesCache = null;
+    cacheLoadPromise = null;
+}
+
+/**
+ * Get all categories (synchronous - uses cache)
  * @returns {Array} Array of category objects
  */
 export function getAllCategoriesSync() {
-    if (CONFIG.useAPI) {
-        console.warn('⚠️ getAllCategoriesSync() called in API mode - use getAllCategories() instead');
-        return [];
+    // If cache is available, use it
+    if (categoriesCache !== null) {
+        return categoriesCache;
     }
-    return getCategoriesFromLocalStorage();
+
+    // Otherwise, return empty array and warn
+    console.warn('⚠️ getAllCategoriesSync() called but cache not loaded - call await getAllCategories() first');
+    return [];
 }
 
 /**
@@ -237,11 +274,14 @@ export function getAllCategoriesSync() {
  * @returns {Promise<Object>} Created category object
  */
 export async function createCategory(categoryData) {
+    let result;
     if (CONFIG.useAPI) {
-        return await createCategoryViaAPI(categoryData);
+        result = await createCategoryViaAPI(categoryData);
     } else {
-        return createCategoryLocally(categoryData);
+        result = createCategoryLocally(categoryData);
     }
+    clearCategoriesCache(); // Clear cache after mutation
+    return result;
 }
 
 /**
@@ -251,11 +291,14 @@ export async function createCategory(categoryData) {
  * @returns {Promise<Object>} Updated category object
  */
 export async function updateCategory(categoryId, updatedData) {
+    let result;
     if (CONFIG.useAPI) {
-        return await updateCategoryViaAPI(categoryId, updatedData);
+        result = await updateCategoryViaAPI(categoryId, updatedData);
     } else {
-        return updateCategoryLocally(categoryId, updatedData);
+        result = updateCategoryLocally(categoryId, updatedData);
     }
+    clearCategoriesCache(); // Clear cache after mutation
+    return result;
 }
 
 /**
@@ -264,11 +307,14 @@ export async function updateCategory(categoryId, updatedData) {
  * @returns {Promise<boolean>} Success status
  */
 export async function deleteCategory(categoryId) {
+    let result;
     if (CONFIG.useAPI) {
-        return await deleteCategoryViaAPI(categoryId);
+        result = await deleteCategoryViaAPI(categoryId);
     } else {
-        return deleteCategoryLocally(categoryId);
+        result = deleteCategoryLocally(categoryId);
     }
+    clearCategoriesCache(); // Clear cache after mutation
+    return result;
 }
 
 /**
@@ -345,19 +391,11 @@ export async function resetCategories() {
  */
 export async function incrementTaskCount(categoryId) {
     if (!categoryId) return false;
-    
-    const categories = getAllCategoriesSync();
-    const category = categories.find(cat => cat.id === categoryId);
-    
-    if (!category) {
-        console.warn(`⚠️ Category not found: ${categoryId}`);
-        return false;
-    }
-    
-    category.taskCount = (category.taskCount || 0) + 1;
-    saveCategoriesLocally(categories);
-    
-    console.log(`✅ Incremented task count for ${category.name}: ${category.taskCount}`);
+
+    // Just clear cache - let backend handle the count
+    clearCategoriesCache();
+
+    console.log(`✅ Task count cache cleared for category: ${categoryId}`);
     return true;
 }
 
@@ -368,19 +406,11 @@ export async function incrementTaskCount(categoryId) {
  */
 export async function decrementTaskCount(categoryId) {
     if (!categoryId) return false;
-    
-    const categories = getAllCategoriesSync();
-    const category = categories.find(cat => cat.id === categoryId);
-    
-    if (!category) {
-        console.warn(`⚠️ Category not found: ${categoryId}`);
-        return false;
-    }
-    
-    category.taskCount = Math.max(0, (category.taskCount || 0) - 1);
-    saveCategoriesLocally(categories);
-    
-    console.log(`✅ Decremented task count for ${category.name}: ${category.taskCount}`);
+
+    // Just clear cache - let backend handle the count
+    clearCategoriesCache();
+
+    console.log(`✅ Task count cache cleared for category: ${categoryId}`);
     return true;
 }
 
@@ -390,8 +420,8 @@ export async function decrementTaskCount(categoryId) {
  * @returns {Promise<boolean>}
  */
 export async function recalculateTaskCounts(tasks) {
-    const categories = getAllCategoriesSync();
-    
+    const categories = await getAllCategories();
+
     // Reset all counts to 0
     categories.forEach(cat => cat.taskCount = 0);
     
@@ -418,47 +448,67 @@ console.log(`📦 CategoryService loaded in ${CONFIG.useAPI ? 'API' : 'localStor
  * Generate HTML <option> elements for category select dropdown
  * @param {string} selectedId - ID of selected category (optional)
  * @param {boolean} includeEmpty - Include "Select Category" option (default: true)
+ * @param {Array} categoriesArray - Optional categories array to use (if not provided, uses sync call)
  * @returns {string} HTML string of options
  */
-export function getCategoryOptionsHTML(selectedId = null, includeEmpty = true) {
-    const categories = getAllCategoriesSync();
-    
+export function getCategoryOptionsHTML(selectedId = null, includeEmpty = true, categoriesArray = null) {
+    // Use provided categories array, or fall back to sync call (with warning)
+    const categories = categoriesArray || getAllCategoriesSync();
+
     console.log('📋 Generating category options HTML...');
     console.log('  Total categories:', categories.length);
     console.log('  Selected ID:', selectedId);
     console.log('  Include empty:', includeEmpty);
-    
+
     let html = '';
-    
+
     // Add empty option if requested
     if (includeEmpty) {
         const emptySelected = !selectedId ? 'selected' : '';
-        html += `<option value="" ${emptySelected}>Select Category</option>`;
+        html += `<option value="" ${emptySelected}>Select category...</option>`;
     }
-    
+
     // Add category options
     categories.forEach(cat => {
         const selected = cat.id === selectedId ? 'selected' : '';
         html += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
         console.log(`  ✅ Added: ${cat.name} (${cat.id}) ${selected ? '← SELECTED' : ''}`);
     });
-    
+
     console.log('  ✅ Generated', categories.length, 'category options');
     return html;
 }
 
 /**
- * Populate a select element with category options (helper function)
+ * Populate a select element with category options (async version for API mode)
  * @param {HTMLSelectElement} selectElement - Select element to populate
  * @param {string} selectedId - ID of selected category (optional)
  * @param {boolean} includeEmpty - Include empty option (default: true)
+ */
+export async function populateCategorySelectAsync(selectElement, selectedId = null, includeEmpty = true) {
+    if (!selectElement) {
+        console.error('Cannot populate category select: element not found');
+        return;
+    }
+
+    const categories = await getAllCategories();
+    selectElement.innerHTML = getCategoryOptionsHTML(selectedId, includeEmpty, categories);
+    console.log('✅ Populated category select with', selectElement.options.length, 'options');
+}
+
+/**
+ * Populate a select element with category options (helper function - sync version)
+ * @param {HTMLSelectElement} selectElement - Select element to populate
+ * @param {string} selectedId - ID of selected category (optional)
+ * @param {boolean} includeEmpty - Include empty option (default: true)
+ * @deprecated Use populateCategorySelectAsync() in API mode
  */
 export function populateCategorySelect(selectElement, selectedId = null, includeEmpty = true) {
     if (!selectElement) {
         console.error('Cannot populate category select: element not found');
         return;
     }
-    
+
     selectElement.innerHTML = getCategoryOptionsHTML(selectedId, includeEmpty);
     console.log('✅ Populated category select with', selectElement.options.length, 'options');
 }

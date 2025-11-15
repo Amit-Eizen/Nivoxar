@@ -259,12 +259,12 @@ function createTaskActions(task) {
         actions.appendChild(subtasksBtn);
     }
 
-    // Share button
+    // Share button - check shared status on click, not during render
     const shareBtn = document.createElement('button');
-    const isShared = isTaskShared(task.id);
-    shareBtn.className = `task-action-btn task-share ${isShared ? 'task-shared-active' : ''}`;
-    shareBtn.title = isShared ? 'Task is Shared' : 'Share Task';
+    shareBtn.className = 'task-action-btn task-share';
+    shareBtn.title = 'Share Task';
     shareBtn.innerHTML = '<i class="fas fa-share-nodes"></i>';
+    shareBtn.dataset.taskId = task.id; // Store task ID for lazy loading
     actions.appendChild(shareBtn);
 
     // Edit button

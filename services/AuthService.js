@@ -2,9 +2,10 @@
 // Handles all user authentication and authorization logic
 
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
+import { CONFIG } from '../config.js';
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = CONFIG.API_BASE_URL;
 
 // ===== TOKEN MANAGEMENT =====
 
@@ -256,39 +257,6 @@ export function checkIfLoggedIn() {
     return false;
 }
 
-// ===== DEPRECATED (for backward compatibility) =====
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function getUsers() {
-    console.warn('⚠️ getUsers() is deprecated - users are now managed by the backend API');
-    return [];
-}
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function saveUsers() {
-    console.warn('⚠️ saveUsers() is deprecated - users are now managed by the backend API');
-}
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function updateUser() {
-    console.warn('⚠️ updateUser() is deprecated - users are now managed by the backend API');
-    throw new Error('Not implemented - use backend API');
-}
-
-/**
- * @deprecated Use API-based authentication instead
- */
-export function changePassword() {
-    console.warn('⚠️ changePassword() is deprecated - users are now managed by the backend API');
-    throw new Error('Not implemented - use backend API');
-}
-
 // ===== USER PROFILE MANAGEMENT (API-BASED) =====
 
 /**
@@ -297,7 +265,7 @@ export function changePassword() {
  */
 export async function getCurrentUserProfile() {
     try {
-        const response = await apiRequest('/api/users/me', {
+        const response = await apiRequest('/users/me', {
             method: 'GET'
         });
 
@@ -316,9 +284,14 @@ export async function getCurrentUserProfile() {
  */
 export async function updateUserProfile(profileData) {
     try {
-        const response = await apiRequest('/api/users/me', {
+        // Convert camelCase to PascalCase for C# model binding
+        const payload = {};
+        if (profileData.name !== undefined) payload.Name = profileData.name;
+        if (profileData.profilePicture !== undefined) payload.ProfilePicture = profileData.profilePicture;
+
+        const response = await apiRequest('/users/me', {
             method: 'PUT',
-            body: JSON.stringify(profileData)
+            body: JSON.stringify(payload)
         });
 
         console.log('✅ User profile updated');
@@ -344,9 +317,9 @@ export async function updateUserProfile(profileData) {
  */
 export async function updateProfilePicture(profilePicture) {
     try {
-        const response = await apiRequest('/api/users/me/profile-picture', {
+        const response = await apiRequest('/users/me/profile-picture', {
             method: 'PUT',
-            body: JSON.stringify({ profilePicture })
+            body: JSON.stringify({ ProfilePicture: profilePicture })  // Capital P to match C# model
         });
 
         console.log('✅ Profile picture updated');
@@ -372,9 +345,9 @@ export async function updateProfilePicture(profilePicture) {
  */
 export async function updateUserName(name) {
     try {
-        const response = await apiRequest('/api/users/me/name', {
+        const response = await apiRequest('/users/me/name', {
             method: 'PUT',
-            body: JSON.stringify({ name })
+            body: JSON.stringify({ Name: name })  // Capital N to match C# model
         });
 
         console.log('✅ User name updated');
@@ -389,6 +362,30 @@ export async function updateUserName(name) {
         return response;
     } catch (error) {
         console.error('❌ Error updating user name:', error);
+        throw error;
+    }
+}
+
+/**
+ * Change user password
+ * @param {string} currentPassword - Current password
+ * @param {string} newPassword - New password
+ * @returns {Promise<Object>} Success response
+ */
+export async function changePassword(currentPassword, newPassword) {
+    try {
+        const response = await apiRequest('/users/me/password', {
+            method: 'PUT',
+            body: JSON.stringify({
+                CurrentPassword: currentPassword,
+                NewPassword: newPassword
+            })
+        });
+
+        console.log('✅ Password changed successfully');
+        return response;
+    } catch (error) {
+        console.error('❌ Error changing password:', error);
         throw error;
     }
 }

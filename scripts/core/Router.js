@@ -68,11 +68,14 @@ class Router {
             window.history.pushState({ path }, '', path);
         }
 
-        // Small delay for smooth transition
-        await new Promise(resolve => setTimeout(resolve, 150));
+        // Wait for exit animation to complete
+        await new Promise(resolve => setTimeout(resolve, 200));
 
         // Render the route
         await this.renderRoute(path);
+
+        // Small delay to ensure content is rendered
+        await new Promise(resolve => setTimeout(resolve, 50));
 
         // Hide loading state
         this.hideLoading();
@@ -92,12 +95,6 @@ class Router {
     async renderRoute(path) {
         this.currentRoute = path;
 
-        // Add exit animation to current content
-        if (this.appContainer) {
-            this.appContainer.classList.add('page-exit');
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-
         // Cleanup before rendering new route
         this.cleanup();
 
@@ -114,11 +111,6 @@ class Router {
             // Route not found - redirect to dashboard
             console.warn(`Route ${path} not found, redirecting to /dashboard`);
             this.navigate('/dashboard', true);
-        }
-
-        // Remove exit animation class
-        if (this.appContainer) {
-            this.appContainer.classList.remove('page-exit');
         }
     }
 
@@ -223,13 +215,19 @@ class Router {
      * Show global loading state with smooth animation
      */
     showLoading() {
-        if (this.globalLoading) {
-            this.globalLoading.classList.add('active');
-            this.globalLoading.style.display = 'flex';
-        }
-
+        // Add transitioning class to app container for fade effect
         if (this.appContainer) {
             this.appContainer.classList.add('page-transitioning');
+            // Remove any previous animation classes
+            this.appContainer.classList.remove('page-enter');
+        }
+
+        // Show global loading spinner if exists
+        if (this.globalLoading) {
+            this.globalLoading.style.display = 'flex';
+            // Force reflow to ensure display change takes effect
+            this.globalLoading.offsetHeight;
+            this.globalLoading.classList.add('active');
         }
     }
 
@@ -237,25 +235,29 @@ class Router {
      * Hide global loading state with smooth animation
      */
     hideLoading() {
+        // Remove transitioning state and add enter animation
         if (this.appContainer) {
             this.appContainer.classList.remove('page-transitioning');
+            // Force reflow before adding animation class
+            this.appContainer.offsetHeight;
             this.appContainer.classList.add('page-enter');
 
-            // Remove animation class after animation completes
+            // Clean up animation class after it completes
             setTimeout(() => {
                 this.appContainer?.classList.remove('page-enter');
-            }, 300);
+            }, 350);
         }
 
+        // Hide global loading spinner
         if (this.globalLoading) {
             this.globalLoading.classList.remove('active');
 
-            // Hide after transition completes
+            // Wait for fade-out transition before hiding
             setTimeout(() => {
                 if (this.globalLoading && !this.globalLoading.classList.contains('active')) {
                     this.globalLoading.style.display = 'none';
                 }
-            }, 200);
+            }, 250);
         }
     }
 

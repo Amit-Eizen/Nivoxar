@@ -1,8 +1,8 @@
 // ProfilePage.js - Profile Management
 import {
-    getCurrentUser,
     updateProfilePicture,
-    updateUserName
+    updateUserName,
+    changePassword
 } from '../services/AuthService.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 import {
@@ -11,20 +11,16 @@ import {
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
-    removeFriend,
-    searchFriends,
-    getFriendsCount,
-    getPendingRequestsCount
+    removeFriend
 } from '../services/FriendsService.js';
+import { escapeHtml } from '../utils/SecurityUtils.js';
+import { formatTimeAgo } from '../utils/DateUtils.js';
+import { getNotificationIcon } from '../utils/NotificationUtils.js';
 import {
     getAllNotifications,
-    getUnreadNotifications,
     getUnreadCount,
-    markAsRead,
     markAllAsRead,
-    deleteNotification,
-    clearAllNotifications,
-    notifyFriendAccepted
+    deleteNotification
 } from '../services/NotificationsService.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 
@@ -145,18 +141,6 @@ function getNotificationIconClass(type) {
     return 'friend-request';
 }
 
-function getNotificationIcon(type) {
-    const icons = {
-        'friend_request': 'fas fa-user-plus',
-        'friend_accepted': 'fas fa-user-check',
-        'task_shared': 'fas fa-share-nodes',
-        'task_updated': 'fas fa-pen-to-square',
-        'task_completed': 'fas fa-check-circle',
-        'comment_added': 'fas fa-comment'
-    };
-    return icons[type] || 'fas fa-bell';
-}
-
 // ===== LOAD FRIEND REQUESTS =====
 async function loadFriendRequests() {
     profileState.friendRequests = await getFriendRequests();
@@ -193,11 +177,11 @@ function renderFriendRequests() {
         <div class="request-item" data-id="${request.id}">
             <div class="request-user-info">
                 <div class="request-avatar">
-                    ${request.username.charAt(0).toUpperCase()}
+                    ${escapeHtml(request.username.charAt(0).toUpperCase())}
                 </div>
                 <div class="request-details">
-                    <h4>${request.username}</h4>
-                    <p>${request.friendEmail || 'No email'}</p>
+                    <h4>${escapeHtml(request.username)}</h4>
+                    <p>${escapeHtml(request.friendEmail || 'No email')}</p>
                     <span class="notification-time">${formatTimeAgo(request.createdAt)}</span>
                 </div>
             </div>
@@ -220,7 +204,7 @@ async function loadFriends() {
     profileState.friends = await getAllFriends();
 
     // Update count badge
-    const count = getFriendsCount();
+    const count = profileState.friends.length;
     document.getElementById('friendsCount').textContent = count;
 
     // Render friends
@@ -249,11 +233,11 @@ function renderFriends(filteredFriends = null) {
             <div class="friend-item" data-id="${friend.id}">
                 <div class="friend-info">
                     <div class="friend-avatar">
-                        ${friendUsername.charAt(0).toUpperCase()}
+                        ${escapeHtml(friendUsername.charAt(0).toUpperCase())}
                     </div>
                     <div class="friend-details">
-                        <h4>${friendUsername}</h4>
-                        <p>${friendEmail || 'No email'}</p>
+                        <h4>${escapeHtml(friendUsername)}</h4>
+                        <p>${escapeHtml(friendEmail || 'No email')}</p>
                         <div class="friend-status online">
                             <span class="status-dot"></span>
                             Online
@@ -298,10 +282,10 @@ function setupEventListeners() {
     document.getElementById('friendsSearchInput').addEventListener('input', handleFriendsSearch);
 
     // Mark all as read (click on notifications header)
-    document.querySelector('.notifications-card .card-header').addEventListener('click', () => {
-        if (getUnreadCount() > 0) {
-            markAllAsRead();
-            loadNotifications();
+    document.querySelector('.notifications-card .card-header').addEventListener('click', async () => {
+        if (await getUnreadCount() > 0) {
+            await markAllAsRead();
+            await loadNotifications();
         }
     });
 }
@@ -401,7 +385,7 @@ function closePasswordModal() {
     document.getElementById('changePasswordModal').style.display = 'none';
 }
 
-function handlePasswordChange(event) {
+async function handlePasswordChange(event) {
     event.preventDefault();
 
     const currentPassword = document.getElementById('currentPassword').value;
@@ -420,18 +404,18 @@ function handlePasswordChange(event) {
     }
 
     try {
-        changePassword(currentPassword, newPassword);
+        await changePassword(currentPassword, newPassword);
         closePasswordModal();
         alert('Password changed successfully');
         console.log('✅ Password changed');
     } catch (error) {
         console.error('❌ Error changing password:', error);
-        alert(error.message);
+        alert(error.message || 'Failed to change password');
     }
 }
 
 // ===== ADD FRIEND =====
-function handleAddFriend(event) {
+async function handleAddFriend(event) {
     event.preventDefault();
 
     const input = document.getElementById('friendSearch');
@@ -443,7 +427,7 @@ function handleAddFriend(event) {
     }
 
     try {
-        const request = sendFriendRequest(usernameOrEmail);
+        const request = await sendFriendRequest(usernameOrEmail);
         input.value = '';
         alert(`Friend request sent to ${request.friendUsername}`);
         console.log('✅ Friend request sent');
@@ -454,16 +438,15 @@ function handleAddFriend(event) {
 }
 
 // ===== FRIEND REQUESTS ACTIONS =====
-function acceptRequest(requestId) {
+async function acceptRequest(requestId) {
     try {
-        const request = acceptFriendRequest(requestId);
+        await acceptFriendRequest(requestId);
 
-        // Create notification for the friend
-        notifyFriendAccepted(request.userId, profileState.currentUser.username);
+        // Note: notifyFriendAccepted() is deprecated - notifications now handled by backend
 
         // Reload data
-        loadFriendRequests();
-        loadFriends();
+        await loadFriendRequests();
+        await loadFriends();
 
         console.log('✅ Friend request accepted');
     } catch (error) {
@@ -472,10 +455,10 @@ function acceptRequest(requestId) {
     }
 }
 
-function rejectRequest(requestId) {
+async function rejectRequest(requestId) {
     try {
-        rejectFriendRequest(requestId);
-        loadFriendRequests();
+        await rejectFriendRequest(requestId);
+        await loadFriendRequests();
         console.log('✅ Friend request rejected');
     } catch (error) {
         console.error('❌ Error rejecting friend request:', error);
@@ -484,14 +467,14 @@ function rejectRequest(requestId) {
 }
 
 // ===== FRIENDS ACTIONS =====
-function removeFriendHandler(friendshipId) {
+async function removeFriendHandler(friendshipId) {
     if (!confirm('Are you sure you want to remove this friend?')) {
         return;
     }
 
     try {
-        removeFriend(friendshipId);
-        loadFriends();
+        await removeFriend(friendshipId);
+        await loadFriends();
         console.log('✅ Friend removed');
     } catch (error) {
         console.error('❌ Error removing friend:', error);
@@ -500,34 +483,31 @@ function removeFriendHandler(friendshipId) {
 }
 
 function handleFriendsSearch(event) {
-    const query = event.target.value.trim();
-    const filtered = searchFriends(query);
+    const query = event.target.value.trim().toLowerCase();
+
+    if (!query) {
+        renderFriends(null); // Show all friends
+        return;
+    }
+
+    // Local search filter
+    const filtered = profileState.friends.filter(friend => {
+        return friend.friendUsername.toLowerCase().includes(query) ||
+               friend.friendEmail.toLowerCase().includes(query);
+    });
+
     renderFriends(filtered);
 }
 
 // ===== NOTIFICATION ACTIONS =====
-function deleteNotificationHandler(notificationId) {
+async function deleteNotificationHandler(notificationId) {
     try {
-        deleteNotification(notificationId);
-        loadNotifications();
+        await deleteNotification(notificationId);
+        await loadNotifications();
         console.log('✅ Notification deleted');
     } catch (error) {
         console.error('❌ Error deleting notification:', error);
     }
-}
-
-// ===== UTILITY FUNCTIONS =====
-function formatTimeAgo(dateString) {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now - date) / 1000);
-
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
-
-    return date.toLocaleDateString();
 }
 
 // ===== EXPOSE FUNCTIONS TO WINDOW =====

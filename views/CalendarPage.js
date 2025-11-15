@@ -1,4 +1,4 @@
-import { getAllCategoriesSync, getCategoryOptionsHTML } from '../services/CategoryService.js';
+import { getAllCategories, getCategoryOptionsHTML } from '../services/CategoryService.js';
 import { getPriorityName, formatDate, formatTime, saveTasksToLocalStorage, loadTasksFromLocalStorage } from '../utils/TaskUtils.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
@@ -56,8 +56,8 @@ async function loadCalendarData() {
         // Get tasks from localStorage using centralized function
         state.tasks = loadTasksFromLocalStorage();
 
-        // Get categories
-        state.categories = getAllCategoriesSync();
+        // Get categories from API
+        state.categories = await getAllCategories();
 
     } catch (error) {
         console.error('Error loading data:', error);
@@ -785,10 +785,10 @@ function toggleEditSubTasksPanel() {
 function openCreateModal() {
     const modal = document.getElementById('create-task-modal');
     modal.classList.add('active');
-    
-    // Populate categories
-    document.getElementById('task-category').innerHTML = getCategoryOptionsHTML();
-    
+
+    // Populate categories with loaded data
+    document.getElementById('task-category').innerHTML = getCategoryOptionsHTML(null, true, state.categories);
+
     // Reset form
     document.getElementById('create-task-form').reset();
 }
@@ -813,7 +813,7 @@ function openEditModal(task) {
     document.getElementById('edit-task-id').value = task.id;
     document.getElementById('edit-task-title').value = task.title;
     document.getElementById('edit-task-description').value = task.description || '';
-    document.getElementById('edit-task-category').innerHTML = getCategoryOptionsHTML(task.category);
+    document.getElementById('edit-task-category').innerHTML = getCategoryOptionsHTML(task.category, true, state.categories);
     document.getElementById('edit-task-priority').value = task.priority;
     
     if (task.dueDate) {
