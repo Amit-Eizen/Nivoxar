@@ -117,7 +117,7 @@ Nivoxar/
 
 **Connection String:**
 ```
-Server=עמיתPC\SQLEXPRESS;Database=NivoxarDB;Trusted_Connection=True;TrustServerCertificate=True
+Server=YourLocalHost;Database=DbName;Trusted_Connection=True;TrustServerCertificate=True
 ```
 
 **Migrations:**
