@@ -170,6 +170,48 @@ export async function verifyEmailCode(email, code) {
     }
 }
 
+/**
+ * Request password reset code
+ * @param {string} email - User email
+ * @returns {Promise<Object>} Result object with success status and message/error
+ */
+export async function forgotPassword(email) {
+    try {
+        const data = await apiRequest('/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+
+        console.log('✅ Password reset code sent:', data.message);
+        return { success: true, message: data.message };
+    } catch (error) {
+        console.error('❌ Failed to send password reset code:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Reset password with code
+ * @param {string} email - User email
+ * @param {string} code - 6-digit reset code
+ * @param {string} newPassword - New password
+ * @returns {Promise<Object>} Result object with success status and message/error
+ */
+export async function resetPassword(email, code, newPassword) {
+    try {
+        const data = await apiRequest('/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ email, code, newPassword })
+        });
+
+        console.log('✅ Password reset successful:', data.message);
+        return { success: true, message: data.message };
+    } catch (error) {
+        console.error('❌ Password reset failed:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 // ===== REGISTER =====
 
 /**

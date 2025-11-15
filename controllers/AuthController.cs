@@ -115,6 +115,109 @@ namespace Nivoxar.Controllers
             return Ok(new { message = "Email verified successfully", verified = true });
         }
 
+        // POST: api/auth/forgot-password
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new { message = "Email is required" });
+            }
+
+            // Check if user exists
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user == null)
+            {
+                // Return success even if user doesn't exist (security best practice)
+                return Ok(new { message = "If the email exists, a password reset code has been sent" });
+            }
+
+            // Generate 6-digit reset code
+            var code = new Random().Next(100000, 999999).ToString();
+
+            // Delete any existing reset codes for this email
+            var existingCodes = await _context.VerificationCodes
+                .Where(v => v.Email == request.Email)
+                .ToListAsync();
+            _context.VerificationCodes.RemoveRange(existingCodes);
+
+            // Create new reset code (reusing VerificationCode table)
+            var resetCode = new VerificationCode
+            {
+                Email = request.Email,
+                Code = code,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+                IsUsed = false
+            };
+
+            _context.VerificationCodes.Add(resetCode);
+            await _context.SaveChangesAsync();
+
+            // Send password reset email
+            try
+            {
+                await _emailService.SendPasswordResetEmailAsync(request.Email, code);
+                return Ok(new { message = "Password reset code sent to email" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to send password reset email", error = ex.Message });
+            }
+        }
+
+        // POST: api/auth/reset-password
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) ||
+                string.IsNullOrWhiteSpace(request.Code) ||
+                string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return BadRequest(new { message = "Email, code, and new password are required" });
+            }
+
+            // Find and validate the reset code
+            var verification = await _context.VerificationCodes
+                .Where(v => v.Email == request.Email && v.Code == request.Code && !v.IsUsed)
+                .OrderByDescending(v => v.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (verification == null)
+            {
+                return BadRequest(new { message = "Invalid reset code" });
+            }
+
+            // Check if code expired
+            if (verification.ExpiresAt < DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "Reset code has expired" });
+            }
+
+            // Find user
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return BadRequest(new { message = "User not found" });
+            }
+
+            // Reset password
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var result = await _userManager.ResetPasswordAsync(user, token, request.NewPassword);
+
+            if (!result.Succeeded)
+            {
+                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                return BadRequest(new { message = $"Failed to reset password: {errors}" });
+            }
+
+            // Mark code as used
+            verification.IsUsed = true;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Password reset successfully" });
+        }
+
         // POST: api/auth/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterRequest request)
@@ -271,6 +374,18 @@ namespace Nivoxar.Controllers
     {
         public string Email { get; set; } = string.Empty;
         public string Code { get; set; } = string.Empty;
+    }
+
+    public class ForgotPasswordRequest
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class ResetPasswordRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 
     public class RegisterRequest
