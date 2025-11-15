@@ -1,5 +1,5 @@
 import { getCurrentUser, logout } from '../services/AuthService.js';
-import { getAllCategoriesSync } from '../services/CategoryService.js';
+import { getAllCategories } from '../services/CategoryService.js';
 import { calculateAnalytics, isTaskOverdue } from '../utils/TaskUtils.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 
@@ -61,10 +61,10 @@ async function loadAnalyticsData() {
         // Get tasks from localStorage
         const tasksJson = localStorage.getItem('nivoxar_tasks');
         state.tasks = tasksJson ? JSON.parse(tasksJson) : [];
-        
-        // Get categories from CategoryService
-        state.categories = getAllCategoriesSync();
-        
+
+        // Get categories from API
+        state.categories = await getAllCategories();
+
     } catch (error) {
         console.error('Error loading data:', error);
         throw error;

@@ -6,6 +6,7 @@ import { setupAllEventListeners } from '../scripts/managers/EventHandlers.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 import { getAllNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../services/NotificationsService.js';
+import { getAllCategories } from '../services/CategoryService.js';
 
 export const dashboardState = {
     tasks: [],
@@ -21,7 +22,7 @@ export const dashboardState = {
     tempSubTasks: []
 };
 
-function initializeDashboard() {
+async function initializeDashboard() {
     console.log('🚀 Initializing Dashboard...');
 
     // Check authentication
@@ -45,22 +46,25 @@ function initializeDashboard() {
 
     hideInitialElements();
     showLoading();
-    
+
+    // Load categories cache first (so getAllCategoriesSync() works)
+    await getAllCategories();
+
     loadUserData();
     initTaskManager(); // Loads from localStorage
     initSubTasksManager();
     setupAllEventListeners();
-    
+
     setTimeout(() => {
         initializePopups();
         hideLoading();
         updateDashboard();
-        
+
         // Show filter notification if category is filtered
         if (categoryFilter) {
             showCategoryFilterNotification(categoryFilter);
         }
-        
+
         console.log('✅ Dashboard initialized!');
     }, 500);
 }
@@ -166,22 +170,22 @@ function initNotificationsPopup() {
     updateNotificationCount();
 
     // Toggle popup
-    notificationBtn.addEventListener('click', (e) => {
+    notificationBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const isVisible = popup.style.display === 'block';
         popup.style.display = isVisible ? 'none' : 'block';
 
         if (!isVisible) {
-            loadNotificationsPopup();
+            await loadNotificationsPopup();
         }
     });
 
     // Mark all as read
     if (markAllReadBtn) {
-        markAllReadBtn.addEventListener('click', () => {
-            markAllAsRead();
-            loadNotificationsPopup();
-            updateNotificationCount();
+        markAllReadBtn.addEventListener('click', async () => {
+            await markAllAsRead();
+            await loadNotificationsPopup();
+            await updateNotificationCount();
         });
     }
 
@@ -193,9 +197,9 @@ function initNotificationsPopup() {
     });
 }
 
-function loadNotificationsPopup() {
+async function loadNotificationsPopup() {
     const container = document.getElementById('notificationsPopupList');
-    const notifications = getAllNotifications();
+    const notifications = await getAllNotifications();
 
     if (notifications.length === 0) {
         container.innerHTML = `
@@ -221,9 +225,9 @@ function loadNotificationsPopup() {
     `).join('');
 }
 
-function updateNotificationCount() {
+async function updateNotificationCount() {
     const badge = document.getElementById('dashboardNotificationCount');
-    const unreadCount = getUnreadCount();
+    const unreadCount = await getUnreadCount();
 
     if (badge) {
         badge.textContent = unreadCount > 0 ? unreadCount : '0';
@@ -231,10 +235,10 @@ function updateNotificationCount() {
     }
 }
 
-function handleNotificationClick(notificationId) {
-    markAsRead(notificationId);
-    loadNotificationsPopup();
-    updateNotificationCount();
+async function handleNotificationClick(notificationId) {
+    await markAsRead(notificationId);
+    await loadNotificationsPopup();
+    await updateNotificationCount();
 }
 
 function getNotificationIconClass(type) {

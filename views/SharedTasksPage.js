@@ -257,7 +257,7 @@ async function openTaskDetails(taskId) {
     renderCollaborators(participants);
 
     // Show/hide action buttons
-    const isTaskOwner = isOwner(taskId, pageState.currentUser.id);
+    const isTaskOwner = await isOwner(taskId, pageState.currentUser.id);
     document.getElementById('leaveTaskBtn').style.display = !isTaskOwner ? 'inline-block' : 'none';
     document.getElementById('unshareTaskBtn').style.display = isTaskOwner ? 'inline-block' : 'none';
     document.getElementById('manageParticipantsBtn').style.display = 'inline-block';
@@ -334,18 +334,18 @@ async function openManageParticipants() {
         }).join('');
 
     // Render current participants
-    renderCurrentParticipants(sharedTask);
+    await renderCurrentParticipants(sharedTask);
 
     // Show modal
     document.getElementById('manageParticipantsModal').style.display = 'flex';
 }
 
 // ===== RENDER CURRENT PARTICIPANTS =====
-function renderCurrentParticipants(sharedTask) {
+async function renderCurrentParticipants(sharedTask) {
     const container = document.getElementById('currentParticipantsList');
     const isTaskOwner = sharedTask.ownerId === pageState.currentUser.id;
 
-    const participants = getAllParticipants(sharedTask.taskId);
+    const participants = await getAllParticipants(sharedTask.taskId);
 
     container.innerHTML = participants.map(p => `
         <div class="participant-item">

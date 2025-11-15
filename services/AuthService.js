@@ -297,7 +297,7 @@ export function changePassword() {
  */
 export async function getCurrentUserProfile() {
     try {
-        const response = await apiRequest('/api/users/me', {
+        const response = await apiRequest('/users/me', {
             method: 'GET'
         });
 
@@ -316,9 +316,14 @@ export async function getCurrentUserProfile() {
  */
 export async function updateUserProfile(profileData) {
     try {
-        const response = await apiRequest('/api/users/me', {
+        // Convert camelCase to PascalCase for C# model binding
+        const payload = {};
+        if (profileData.name !== undefined) payload.Name = profileData.name;
+        if (profileData.profilePicture !== undefined) payload.ProfilePicture = profileData.profilePicture;
+
+        const response = await apiRequest('/users/me', {
             method: 'PUT',
-            body: JSON.stringify(profileData)
+            body: JSON.stringify(payload)
         });
 
         console.log('✅ User profile updated');
@@ -344,9 +349,9 @@ export async function updateUserProfile(profileData) {
  */
 export async function updateProfilePicture(profilePicture) {
     try {
-        const response = await apiRequest('/api/users/me/profile-picture', {
+        const response = await apiRequest('/users/me/profile-picture', {
             method: 'PUT',
-            body: JSON.stringify({ profilePicture })
+            body: JSON.stringify({ ProfilePicture: profilePicture })  // Capital P to match C# model
         });
 
         console.log('✅ Profile picture updated');
@@ -372,9 +377,9 @@ export async function updateProfilePicture(profilePicture) {
  */
 export async function updateUserName(name) {
     try {
-        const response = await apiRequest('/api/users/me/name', {
+        const response = await apiRequest('/users/me/name', {
             method: 'PUT',
-            body: JSON.stringify({ name })
+            body: JSON.stringify({ Name: name })  // Capital N to match C# model
         });
 
         console.log('✅ User name updated');

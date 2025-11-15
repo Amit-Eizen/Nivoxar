@@ -19,6 +19,7 @@ namespace Nivoxar.Models.Entities
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime? AcceptedAt { get; set; }
+        public DateTime? RejectedAt { get; set; }
 
         // Navigation properties
         public virtual User UserInitiator { get; set; } = null!;

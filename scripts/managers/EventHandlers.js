@@ -114,7 +114,7 @@ function handleTempSubTaskKeypress(e) {
     }
 }
 
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
     e.preventDefault();
 
     const popup = document.getElementById('taskPopup');
@@ -158,9 +158,9 @@ function handleFormSubmit(e) {
     }
 
     if (isEdit && taskId) {
-        updateTask(taskId, taskData);
+        await updateTask(taskId, taskData);
     } else {
-        createTask(taskData);
+        await createTask(taskData);
     }
 
     clearTempSubTasks(dashboardState);
@@ -238,7 +238,7 @@ function updateSubTasksPopupInfo(task) {
     }
 }
 
-function handleClick(e) {
+async function handleClick(e) {
     const shareBtn = e.target.closest('.task-share');
     if (shareBtn) {
         const taskId = parseInt(shareBtn.closest('.task-item').dataset.taskId);
@@ -266,7 +266,7 @@ function handleClick(e) {
     if (deleteBtn) {
         const taskId = parseInt(deleteBtn.closest('.task-item').dataset.taskId);
         if (confirm('Are you sure you want to delete this task?')) {
-            deleteTask(taskId);
+            await deleteTask(taskId);
             updateDashboard();
         }
         return;
@@ -290,36 +290,15 @@ function handleClick(e) {
 
                 if (addBtn) {
                     addBtn.replaceWith(addBtn.cloneNode(true));
-                    document.getElementById('addSubTaskBtn').addEventListener('click', () => {
+                    document.getElementById('addSubTaskBtn').addEventListener('click', async () => {
                         const currentInput = document.getElementById('newSubTaskInput');
                         const title = currentInput?.value.trim();
                         if (!title) return;
 
-                        addSubTask(dashboardState, taskId, title);
-                        currentInput.value = '';
-                        currentInput.focus();
-
-                        const updatedTask = getTaskById(taskId);
-                        if (updatedTask && container) {
-                            renderSubTasks(updatedTask, container);
-                            updateSubTasksPopupInfo(updatedTask);
-                        }
-
-                        updateDashboard();
-                    });
-                }
-
-                if (input) {
-                    input.replaceWith(input.cloneNode(true));
-                    document.getElementById('newSubTaskInput').addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            const title = e.target.value.trim();
-                            if (!title) return;
-
-                            addSubTask(dashboardState, taskId, title);
-                            e.target.value = '';
-                            e.target.focus();
+                        try {
+                            await addSubTask(dashboardState, taskId, title);
+                            currentInput.value = '';
+                            currentInput.focus();
 
                             const updatedTask = getTaskById(taskId);
                             if (updatedTask && container) {
@@ -328,6 +307,37 @@ function handleClick(e) {
                             }
 
                             updateDashboard();
+                        } catch (error) {
+                            console.error('Failed to add subtask:', error);
+                            alert('Failed to add subtask. Please try again.');
+                        }
+                    });
+                }
+
+                if (input) {
+                    input.replaceWith(input.cloneNode(true));
+                    document.getElementById('newSubTaskInput').addEventListener('keypress', async (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const title = e.target.value.trim();
+                            if (!title) return;
+
+                            try {
+                                await addSubTask(dashboardState, taskId, title);
+                                e.target.value = '';
+                                e.target.focus();
+
+                                const updatedTask = getTaskById(taskId);
+                                if (updatedTask && container) {
+                                    renderSubTasks(updatedTask, container);
+                                    updateSubTasksPopupInfo(updatedTask);
+                                }
+
+                                updateDashboard();
+                            } catch (error) {
+                                console.error('Failed to add subtask:', error);
+                                alert('Failed to add subtask. Please try again.');
+                            }
                         }
                     });
                 }
@@ -352,7 +362,7 @@ function handleClick(e) {
 
                     const updatedContainer = document.getElementById('subTasksList');
 
-                    updatedContainer.addEventListener('click', (e) => {
+                    updatedContainer.addEventListener('click', async (e) => {
                         // Handle edit button
                         const editBtn = e.target.closest('.subtask-edit');
                         if (editBtn) {
@@ -406,15 +416,20 @@ function handleClick(e) {
         input.focus();
         input.select();
         
-        const save = () => {
+        const save = async () => {
             const newText = input.value.trim();
             if (newText && newText !== currentText) {
                 if (taskId) {
-                    editSubTask(dashboardState, taskId, subtaskId, newText);
-                    const task = getTaskById(taskId);
-                    const container = document.getElementById('subTasksList');
-                    if (task && container) renderSubTasks(task, container);
-                    updateDashboard();
+                    try {
+                        await editSubTask(dashboardState, taskId, subtaskId, newText);
+                        const task = getTaskById(taskId);
+                        const container = document.getElementById('subTasksList');
+                        if (task && container) renderSubTasks(task, container);
+                        updateDashboard();
+                    } catch (error) {
+                        console.error('Failed to edit subtask:', error);
+                        alert('Failed to edit subtask. Please try again.');
+                    }
                 } else {
                     editTempSubTask(dashboardState, subtaskId, newText);
                     const container = document.getElementById('tempSubTasksList');
@@ -463,14 +478,19 @@ function handleClick(e) {
         const subtaskId = parseInt(item.dataset.subtaskId);
 
         if (taskId) {
-            deleteSubTask(dashboardState, taskId, subtaskId);
-            const task = getTaskById(taskId);
-            const container = document.getElementById('subTasksList');
-            if (task && container) {
-                renderSubTasks(task, container);
-                updateSubTasksPopupInfo(task);
+            try {
+                await deleteSubTask(dashboardState, taskId, subtaskId);
+                const task = getTaskById(taskId);
+                const container = document.getElementById('subTasksList');
+                if (task && container) {
+                    renderSubTasks(task, container);
+                    updateSubTasksPopupInfo(task);
+                }
+                updateDashboard();
+            } catch (error) {
+                console.error('Failed to delete subtask:', error);
+                alert('Failed to delete subtask. Please try again.');
             }
-            updateDashboard();
         } else {
             deleteTempSubTask(dashboardState, subtaskId);
             const container = document.getElementById('tempSubTasksList');
@@ -481,73 +501,83 @@ function handleClick(e) {
 }
 
 
-function handleChange(e) {
+async function handleChange(e) {
     if (e.target.type !== 'checkbox') return;
-    
+
     const taskCheckbox = e.target.closest('.task-checkbox');
     const subtaskCheckbox = e.target.closest('.subtask-checkbox');
-    
+
     if (taskCheckbox && !subtaskCheckbox) {
         const taskId = parseInt(taskCheckbox.closest('.task-item').dataset.taskId);
-        toggleTaskCompletion(taskId);
-        updateDashboard();
+        try {
+            await toggleTaskCompletion(taskId);
+            updateDashboard();
+        } catch (error) {
+            console.error('Failed to toggle task completion:', error);
+            alert('Failed to toggle task completion. Please try again.');
+        }
         return;
     }
-    
+
     if (subtaskCheckbox) {
         e.stopPropagation();
 
         const item = subtaskCheckbox.closest('.subtask-item');
         const taskId = item.dataset.taskId ? parseInt(item.dataset.taskId) : null;
         const subtaskId = parseInt(item.dataset.subtaskId);
-        
+
         if (taskId) {
-            // Toggle the state
-            toggleSubTask(dashboardState, taskId, subtaskId);
+            try {
+                // Toggle the state
+                await toggleSubTask(dashboardState, taskId, subtaskId);
 
-            const task = getTaskById(taskId);
-            const subTask = task?.subTasks?.find(st => st.id === subtaskId);
+                const task = getTaskById(taskId);
+                const subTask = task?.subTasks?.find(st => st.id === subtaskId);
 
-            if (subTask) {
-                // Update the UI directly without re-rendering
-                const checkbox = item.querySelector('input[type="checkbox"]');
-                if (checkbox) {
-                    checkbox.checked = subTask.completed;
-                }
-
-                if (subTask.completed) {
-                    item.classList.add('completed');
-                } else {
-                    item.classList.remove('completed');
-                }
-
-                // Update popup info (count and completed)
-                updateSubTasksPopupInfo(task);
-
-                // Update only the task item in the dashboard (not the entire dashboard)
-                const taskItem = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
-
-                if (taskItem) {
-                    const completed = task.subTasks.filter(st => st.completed).length;
-                    const progress = completed / task.subTasks.length;
-
-                    // Update progress bar
-                    const progressBar = taskItem.querySelector('.subtasks-progress .progress-bar-fill');
-                    const progressText = taskItem.querySelector('.subtasks-progress .progress-text span:last-child');
-
-                    if (progressBar) {
-                        progressBar.style.width = `${progress * 100}%`;
-                    }
-                    if (progressText) {
-                        progressText.textContent = `${completed}/${task.subTasks.length} completed`;
+                if (subTask) {
+                    // Update the UI directly without re-rendering
+                    const checkbox = item.querySelector('input[type="checkbox"]');
+                    if (checkbox) {
+                        checkbox.checked = subTask.completed;
                     }
 
-                    // Update subtasks count badge
-                    const subtasksCount = taskItem.querySelector('.subtasks-count');
-                    if (subtasksCount) {
-                        subtasksCount.textContent = `${completed}/${task.subTasks.length}`;
+                    if (subTask.completed) {
+                        item.classList.add('completed');
+                    } else {
+                        item.classList.remove('completed');
+                    }
+
+                    // Update popup info (count and completed)
+                    updateSubTasksPopupInfo(task);
+
+                    // Update only the task item in the dashboard (not the entire dashboard)
+                    const taskItem = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
+
+                    if (taskItem) {
+                        const completed = task.subTasks.filter(st => st.completed).length;
+                        const progress = completed / task.subTasks.length;
+
+                        // Update progress bar
+                        const progressBar = taskItem.querySelector('.subtasks-progress .progress-bar-fill');
+                        const progressText = taskItem.querySelector('.subtasks-progress .progress-text span:last-child');
+
+                        if (progressBar) {
+                            progressBar.style.width = `${progress * 100}%`;
+                        }
+                        if (progressText) {
+                            progressText.textContent = `${completed}/${task.subTasks.length} completed`;
+                        }
+
+                        // Update subtasks count badge
+                        const subtasksCount = taskItem.querySelector('.subtasks-count');
+                        if (subtasksCount) {
+                            subtasksCount.textContent = `${completed}/${task.subTasks.length}`;
+                        }
                     }
                 }
+            } catch (error) {
+                console.error('Failed to toggle subtask:', error);
+                alert('Failed to toggle subtask. Please try again.');
             }
         } else {
             // Temp subtask
@@ -617,16 +647,21 @@ function handleSubtaskEdit(e, taskId, container) {
     input.focus();
     input.select();
     
-    const save = () => {
+    const save = async () => {
         const newText = input.value.trim();
         if (newText && newText !== currentText) {
-            editSubTask(dashboardState, taskId, subtaskId, newText);
-            const task = getTaskById(taskId);
-            if (task && container) {
-                renderSubTasks(task, container);
-                updateSubTasksPopupInfo(task);
+            try {
+                await editSubTask(dashboardState, taskId, subtaskId, newText);
+                const task = getTaskById(taskId);
+                if (task && container) {
+                    renderSubTasks(task, container);
+                    updateSubTasksPopupInfo(task);
+                }
+                updateDashboard();
+            } catch (error) {
+                console.error('Failed to edit subtask:', error);
+                alert('Failed to edit subtask. Please try again.');
             }
-            updateDashboard();
         } else {
             const span = document.createElement('span');
             span.className = 'subtask-text';
@@ -660,17 +695,23 @@ function handleSubtaskEdit(e, taskId, container) {
     });
 }
 
-function handleSubtaskDelete(e, taskId, container) {
+async function handleSubtaskDelete(e, taskId, container) {
     const item = e.target.closest('.subtask-item');
     if (!item) return;
 
     const subtaskId = parseInt(item.dataset.subtaskId);
-    deleteSubTask(dashboardState, taskId, subtaskId);
 
-    const task = getTaskById(taskId);
-    if (task && container) {
-        renderSubTasks(task, container);
-        updateSubTasksPopupInfo(task);
+    try {
+        await deleteSubTask(dashboardState, taskId, subtaskId);
+
+        const task = getTaskById(taskId);
+        if (task && container) {
+            renderSubTasks(task, container);
+            updateSubTasksPopupInfo(task);
+        }
+    } catch (error) {
+        console.error('Failed to delete subtask:', error);
+        alert('Failed to delete subtask. Please try again.');
     }
     updateDashboard();
 }

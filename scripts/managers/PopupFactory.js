@@ -1,6 +1,6 @@
 import { dashboardState } from '../../views/DashboardPage.js';
 import { renderTempSubTasks, renderSubTasks } from './SubTasksManager.js';
-import { getCategoryOptionsHTML } from '../../services/CategoryService.js';
+import { populateCategorySelectAsync } from '../../services/CategoryService.js';
 
 
 // Create Task Popup - WITH GRID LAYOUT
@@ -226,22 +226,24 @@ export function initializePopups() {
 }
 
 // Helper function to refresh category options in dropdown
-function refreshCategoryDropdown(valueToSet = null) {
+async function refreshCategoryDropdown(valueToSet = null) {
     const categorySelect = document.getElementById('taskCategory');
     if (!categorySelect) {
         console.error('❌ Category select element not found!');
         return;
     }
-    
+
     console.log('🔄 Refreshing category dropdown...');
     console.log('  Current value:', categorySelect.value);
     console.log('  Value to set:', valueToSet);
-    
+
     const currentValue = valueToSet !== null ? valueToSet : categorySelect.value;
-    categorySelect.innerHTML = getCategoryOptionsHTML(null, false); // No empty option for task creation
-    
+
+    // Use async version to load from API
+    await populateCategorySelectAsync(categorySelect, null, false); // No empty option for task creation
+
     console.log('  New options count:', categorySelect.options.length);
-    
+
     // Restore/set the value if it exists
     if (currentValue && categorySelect.querySelector(`option[value="${currentValue}"]`)) {
         categorySelect.value = currentValue;
@@ -249,7 +251,7 @@ function refreshCategoryDropdown(valueToSet = null) {
     } else {
         console.log('  ℹ️ Value not found or empty');
     }
-    
+
     console.log('✅ Category dropdown refreshed successfully');
 }
 

@@ -298,10 +298,10 @@ function setupEventListeners() {
     document.getElementById('friendsSearchInput').addEventListener('input', handleFriendsSearch);
 
     // Mark all as read (click on notifications header)
-    document.querySelector('.notifications-card .card-header').addEventListener('click', () => {
-        if (getUnreadCount() > 0) {
-            markAllAsRead();
-            loadNotifications();
+    document.querySelector('.notifications-card .card-header').addEventListener('click', async () => {
+        if (await getUnreadCount() > 0) {
+            await markAllAsRead();
+            await loadNotifications();
         }
     });
 }
@@ -454,16 +454,15 @@ function handleAddFriend(event) {
 }
 
 // ===== FRIEND REQUESTS ACTIONS =====
-function acceptRequest(requestId) {
+async function acceptRequest(requestId) {
     try {
-        const request = acceptFriendRequest(requestId);
+        const request = await acceptFriendRequest(requestId);
 
-        // Create notification for the friend
-        notifyFriendAccepted(request.userId, profileState.currentUser.username);
+        // Note: notifyFriendAccepted() is deprecated - notifications now handled by backend
 
         // Reload data
-        loadFriendRequests();
-        loadFriends();
+        await loadFriendRequests();
+        await loadFriends();
 
         console.log('✅ Friend request accepted');
     } catch (error) {
@@ -472,10 +471,10 @@ function acceptRequest(requestId) {
     }
 }
 
-function rejectRequest(requestId) {
+async function rejectRequest(requestId) {
     try {
-        rejectFriendRequest(requestId);
-        loadFriendRequests();
+        await rejectFriendRequest(requestId);
+        await loadFriendRequests();
         console.log('✅ Friend request rejected');
     } catch (error) {
         console.error('❌ Error rejecting friend request:', error);
@@ -506,10 +505,10 @@ function handleFriendsSearch(event) {
 }
 
 // ===== NOTIFICATION ACTIONS =====
-function deleteNotificationHandler(notificationId) {
+async function deleteNotificationHandler(notificationId) {
     try {
-        deleteNotification(notificationId);
-        loadNotifications();
+        await deleteNotification(notificationId);
+        await loadNotifications();
         console.log('✅ Notification deleted');
     } catch (error) {
         console.error('❌ Error deleting notification:', error);
