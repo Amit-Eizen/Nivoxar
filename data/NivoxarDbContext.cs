@@ -18,6 +18,7 @@ namespace Nivoxar.Data
         public DbSet<SharedTaskParticipant> SharedTaskParticipants { get; set; }
         public DbSet<Friend> Friends { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<VerificationCode> VerificationCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -157,6 +158,22 @@ namespace Nivoxar.Data
                 entity.HasIndex(n => n.UserId);
                 entity.HasIndex(n => n.Read);
                 entity.HasIndex(n => n.CreatedAt);
+            });
+
+            // VerificationCode Configuration
+            builder.Entity<VerificationCode>(entity =>
+            {
+                entity.ToTable("VerificationCodes");
+                entity.HasKey(v => v.Id);
+                entity.Property(v => v.Email).IsRequired().HasMaxLength(256);
+                entity.Property(v => v.Code).IsRequired().HasMaxLength(6);
+                entity.Property(v => v.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(v => v.ExpiresAt).IsRequired();
+                entity.Property(v => v.IsUsed).HasDefaultValue(false);
+
+                entity.HasIndex(v => v.Email);
+                entity.HasIndex(v => v.Code);
+                entity.HasIndex(v => v.ExpiresAt);
             });
         }
     }
