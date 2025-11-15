@@ -127,6 +127,49 @@ export async function login(email, password) {
     }
 }
 
+// ===== EMAIL VERIFICATION =====
+
+/**
+ * Send verification code to email
+ * @param {string} email - User email
+ * @returns {Promise<Object>} Result object with success status and message/error
+ */
+export async function sendVerificationCode(email) {
+    try {
+        const data = await apiRequest('/auth/send-verification', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+        });
+
+        console.log('✅ Verification code sent:', data.message);
+        return { success: true, message: data.message };
+    } catch (error) {
+        console.error('❌ Failed to send verification code:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Verify email with code
+ * @param {string} email - User email
+ * @param {string} code - 6-digit verification code
+ * @returns {Promise<Object>} Result object with success status and verified/error
+ */
+export async function verifyEmailCode(email, code) {
+    try {
+        const data = await apiRequest('/auth/verify-code', {
+            method: 'POST',
+            body: JSON.stringify({ email, code })
+        });
+
+        console.log('✅ Email verified:', data.message);
+        return { success: true, verified: data.verified };
+    } catch (error) {
+        console.error('❌ Email verification failed:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 // ===== REGISTER =====
 
 /**

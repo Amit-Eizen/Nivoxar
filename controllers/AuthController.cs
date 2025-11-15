@@ -6,6 +6,8 @@ using System.Security.Claims;
 using System.Text;
 using Nivoxar.Models.Entities;
 using Nivoxar.Data;
+using Nivoxar.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace Nivoxar.Controllers
 {
@@ -16,12 +18,101 @@ namespace Nivoxar.Controllers
         private readonly UserManager<User> _userManager;
         private readonly IConfiguration _configuration;
         private readonly NivoxarDbContext _context;
+        private readonly IEmailService _emailService;
 
-        public AuthController(UserManager<User> userManager, IConfiguration configuration, NivoxarDbContext context)
+        public AuthController(
+            UserManager<User> userManager,
+            IConfiguration configuration,
+            NivoxarDbContext context,
+            IEmailService emailService)
         {
             _userManager = userManager;
             _configuration = configuration;
             _context = context;
+            _emailService = emailService;
+        }
+
+        // POST: api/auth/send-verification
+        [HttpPost("send-verification")]
+        public async Task<IActionResult> SendVerificationCode([FromBody] SendVerificationRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new { message = "Email is required" });
+            }
+
+            // Check if email already exists
+            var existingUser = await _userManager.FindByEmailAsync(request.Email);
+            if (existingUser != null)
+            {
+                return BadRequest(new { message = "User with this email already exists" });
+            }
+
+            // Generate 6-digit verification code
+            var code = new Random().Next(100000, 999999).ToString();
+
+            // Delete any existing codes for this email
+            var existingCodes = await _context.VerificationCodes
+                .Where(v => v.Email == request.Email)
+                .ToListAsync();
+            _context.VerificationCodes.RemoveRange(existingCodes);
+
+            // Create new verification code
+            var verificationCode = new VerificationCode
+            {
+                Email = request.Email,
+                Code = code,
+                CreatedAt = DateTime.UtcNow,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(10),
+                IsUsed = false
+            };
+
+            _context.VerificationCodes.Add(verificationCode);
+            await _context.SaveChangesAsync();
+
+            // Send email
+            try
+            {
+                await _emailService.SendVerificationEmailAsync(request.Email, code);
+                return Ok(new { message = "Verification code sent to email" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Failed to send verification email", error = ex.Message });
+            }
+        }
+
+        // POST: api/auth/verify-code
+        [HttpPost("verify-code")]
+        public async Task<IActionResult> VerifyCode([FromBody] VerifyCodeRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Code))
+            {
+                return BadRequest(new { message = "Email and code are required" });
+            }
+
+            // Find the verification code
+            var verification = await _context.VerificationCodes
+                .Where(v => v.Email == request.Email && v.Code == request.Code && !v.IsUsed)
+                .OrderByDescending(v => v.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (verification == null)
+            {
+                return BadRequest(new { message = "Invalid verification code" });
+            }
+
+            // Check if code expired
+            if (verification.ExpiresAt < DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "Verification code has expired" });
+            }
+
+            // Mark as used
+            verification.IsUsed = true;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Email verified successfully", verified = true });
         }
 
         // POST: api/auth/register
@@ -171,6 +262,17 @@ namespace Nivoxar.Controllers
     }
 
     // Request models
+    public class SendVerificationRequest
+    {
+        public string Email { get; set; } = string.Empty;
+    }
+
+    public class VerifyCodeRequest
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+    }
+
     public class RegisterRequest
     {
         public string Email { get; set; } = string.Empty;

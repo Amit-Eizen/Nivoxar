@@ -3,7 +3,8 @@
 .env.local
 .env.*.local
 
-# Development settings only (Production settings are committed)
+# All appsettings with secrets (Development, Production, Staging)
+appsettings.json
 appsettings.Development.json
 appsettings.Production.json
 appsettings.Staging.json

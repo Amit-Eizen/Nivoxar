@@ -5,6 +5,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Nivoxar.Data;
 using Nivoxar.Models.Entities;
+using Nivoxar.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddOpenApi();
+
+// Register EmailService
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Add Database
 builder.Services.AddDbContext<NivoxarDbContext>(options =>
