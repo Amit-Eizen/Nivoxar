@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -13,10 +14,12 @@ namespace Nivoxar.Controllers
     public class TasksController : ControllerBase
     {
         private readonly NivoxarDbContext _context;
+        private readonly UserManager<User> _userManager;
 
-        public TasksController(NivoxarDbContext context)
+        public TasksController(NivoxarDbContext context, UserManager<User> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         // GET: api/tasks
@@ -49,6 +52,7 @@ namespace Nivoxar.Controllers
                     t.RecurringFrequency,
                     t.RecurringEndDate,
                     t.CategoryId,
+                    IsShared = _context.SharedTasks.Any(st => st.TaskId == t.Id), // Check if task is shared
                     Category = t.Category != null ? new
                     {
                         t.Category.Id,
@@ -100,6 +104,7 @@ namespace Nivoxar.Controllers
                     t.RecurringFrequency,
                     t.RecurringEndDate,
                     t.CategoryId,
+                    IsShared = _context.SharedTasks.Any(st => st.TaskId == t.Id), // Check if task is shared
                     Category = t.Category != null ? new
                     {
                         t.Category.Id,
@@ -161,11 +166,31 @@ namespace Nivoxar.Controllers
             _context.Tasks.Add(task);
             await _context.SaveChangesAsync();
 
-            // Load the category if exists
+            // Create subtasks if provided
+            if (request.SubTasks != null && request.SubTasks.Count > 0)
+            {
+                int order = 0;
+                foreach (var subTaskDto in request.SubTasks)
+                {
+                    var subTask = new SubTask
+                    {
+                        TaskId = task.Id,
+                        Title = subTaskDto.Title,
+                        Completed = subTaskDto.Completed,
+                        Order = order++,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.SubTasks.Add(subTask);
+                }
+                await _context.SaveChangesAsync();
+            }
+
+            // Load related data
             if (task.CategoryId.HasValue)
             {
                 await _context.Entry(task).Reference(t => t.Category).LoadAsync();
             }
+            await _context.Entry(task).Collection(t => t.SubTasks).LoadAsync();
 
             return CreatedAtAction(nameof(GetTask), new { id = task.Id }, new
             {
@@ -182,13 +207,23 @@ namespace Nivoxar.Controllers
                 task.RecurringFrequency,
                 task.RecurringEndDate,
                 task.CategoryId,
+                IsShared = false, // New tasks are not shared by default
                 Category = task.Category != null ? new
                 {
                     task.Category.Id,
                     task.Category.Name,
                     task.Category.Color
                 } : null,
-                SubTasks = new List<object>()
+                SubTasks = task.SubTasks.Select(st => new
+                {
+                    st.Id,
+                    st.Title,
+                    st.Description,
+                    st.Completed,
+                    st.Order,
+                    st.CreatedAt,
+                    st.CompletedAt
+                }).OrderBy(st => st.Order).ToList()
             });
         }
 
@@ -216,8 +251,35 @@ namespace Nivoxar.Controllers
             if (request.DueTime != null) task.DueTime = request.DueTime;
             if (request.Completed.HasValue)
             {
+                bool wasCompleted = task.Completed;
                 task.Completed = request.Completed.Value;
                 task.CompletedAt = request.Completed.Value ? DateTime.UtcNow : null;
+
+                // If task was marked as completed, notify users who have this task shared
+                if (!wasCompleted && request.Completed.Value)
+                {
+                    var sharedWith = await _context.SharedTaskParticipants
+                        .Where(stp => stp.SharedTask.TaskId == task.Id && stp.UserId != userId)
+                        .Include(stp => stp.User)
+                        .ToListAsync();
+
+                    var currentUser = await _userManager.FindByIdAsync(userId);
+
+                    foreach (var participant in sharedWith)
+                    {
+                        var notification = new Notification
+                        {
+                            UserId = participant.UserId,
+                            Type = "task-completed",
+                            Title = "Task Completed",
+                            Message = $"{currentUser!.Name} completed the shared task '{task.Title}'",
+                            Data = System.Text.Json.JsonSerializer.Serialize(new { taskId = task.Id, completedBy = currentUser.Name }),
+                            Read = false,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.Notifications.Add(notification);
+                    }
+                }
             }
             if (request.IsRecurring.HasValue) task.IsRecurring = request.IsRecurring.Value;
             if (request.RecurringFrequency != null) task.RecurringFrequency = request.RecurringFrequency;
@@ -225,6 +287,44 @@ namespace Nivoxar.Controllers
             if (request.CategoryId.HasValue) task.CategoryId = request.CategoryId;
 
             await _context.SaveChangesAsync();
+
+            // Add new subtasks if provided (for edit mode when user adds subtasks)
+            if (request.SubTasks != null && request.SubTasks.Count > 0)
+            {
+                // Use HashSet for O(1) lookups instead of O(n) for each check
+                var existingSubTaskTitles = await _context.SubTasks
+                    .Where(st => st.TaskId == task.Id)
+                    .Select(st => st.Title.ToLower().Trim())
+                    .ToListAsync();
+
+                var existingTitlesSet = new HashSet<string>(existingSubTaskTitles);
+
+                // Get max order in a single query
+                var maxOrder = await _context.SubTasks
+                    .Where(st => st.TaskId == task.Id)
+                    .MaxAsync(st => (int?)st.Order) ?? -1;
+
+                foreach (var subTaskDto in request.SubTasks)
+                {
+                    // Normalize title for comparison (case-insensitive, trimmed)
+                    var normalizedTitle = subTaskDto.Title.ToLower().Trim();
+
+                    // O(1) lookup instead of O(n)
+                    if (!existingTitlesSet.Contains(normalizedTitle))
+                    {
+                        var subTask = new SubTask
+                        {
+                            TaskId = task.Id,
+                            Title = subTaskDto.Title.Trim(), // Save original casing
+                            Completed = subTaskDto.Completed,
+                            Order = ++maxOrder,
+                            CreatedAt = DateTime.UtcNow
+                        };
+                        _context.SubTasks.Add(subTask);
+                    }
+                }
+                await _context.SaveChangesAsync();
+            }
 
             // Reload with related data
             await _context.Entry(task).Reference(t => t.Category).LoadAsync();
@@ -245,6 +345,7 @@ namespace Nivoxar.Controllers
                 task.RecurringFrequency,
                 task.RecurringEndDate,
                 task.CategoryId,
+                IsShared = _context.SharedTasks.Any(st => st.TaskId == task.Id), // Check if task is shared
                 Category = task.Category != null ? new
                 {
                     task.Category.Id,
@@ -280,6 +381,32 @@ namespace Nivoxar.Controllers
                 return NotFound(new { message = "Task not found" });
             }
 
+            // Notify users who have this task shared before deleting
+            var sharedWith = await _context.SharedTaskParticipants
+                .Where(stp => stp.SharedTask.TaskId == task.Id && stp.UserId != userId)
+                .Include(stp => stp.User)
+                .ToListAsync();
+
+            if (sharedWith.Any())
+            {
+                var currentUser = await _userManager.FindByIdAsync(userId);
+
+                foreach (var participant in sharedWith)
+                {
+                    var notification = new Notification
+                    {
+                        UserId = participant.UserId,
+                        Type = "task-deleted",
+                        Title = "Shared Task Deleted",
+                        Message = $"{currentUser!.Name} deleted the shared task '{task.Title}'",
+                        Data = System.Text.Json.JsonSerializer.Serialize(new { taskId = task.Id, deletedBy = currentUser.Name, taskTitle = task.Title }),
+                        Read = false,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.Notifications.Add(notification);
+                }
+            }
+
             _context.Tasks.Remove(task);
             await _context.SaveChangesAsync();
 
@@ -296,10 +423,24 @@ namespace Nivoxar.Controllers
                 return Unauthorized(new { message = "User not authenticated" });
             }
 
+            // Check if user owns the task
             var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == taskId && t.UserId == userId);
+
+            // If not owner, check if it's a shared task with CanAddSubtasks permission
             if (task == null)
             {
-                return NotFound(new { message = "Task not found" });
+                var sharedTask = await _context.SharedTasks
+                    .Include(st => st.Task)
+                    .Include(st => st.Participants)
+                    .FirstOrDefaultAsync(st => st.TaskId == taskId &&
+                        (st.OwnerId == userId || st.Participants.Any(p => p.UserId == userId)));
+
+                if (sharedTask == null || !sharedTask.CanAddSubtasks)
+                {
+                    return NotFound(new { message = "Task not found or you don't have permission to add subtasks" });
+                }
+
+                task = sharedTask.Task;
             }
 
             if (string.IsNullOrWhiteSpace(request.Title))
@@ -342,10 +483,24 @@ namespace Nivoxar.Controllers
                 return Unauthorized(new { message = "User not authenticated" });
             }
 
+            // Check if user owns the task
             var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == taskId && t.UserId == userId);
+
+            // If not owner, check if it's a shared task with CanAddSubtasks permission (which includes updating subtasks)
             if (task == null)
             {
-                return NotFound(new { message = "Task not found" });
+                var sharedTask = await _context.SharedTasks
+                    .Include(st => st.Task)
+                    .Include(st => st.Participants)
+                    .FirstOrDefaultAsync(st => st.TaskId == taskId &&
+                        (st.OwnerId == userId || st.Participants.Any(p => p.UserId == userId)));
+
+                if (sharedTask == null || !sharedTask.CanAddSubtasks)
+                {
+                    return NotFound(new { message = "Task not found or you don't have permission to update subtasks" });
+                }
+
+                task = sharedTask.Task;
             }
 
             var subTask = await _context.SubTasks.FirstOrDefaultAsync(st => st.Id == subTaskId && st.TaskId == taskId);
@@ -388,10 +543,24 @@ namespace Nivoxar.Controllers
                 return Unauthorized(new { message = "User not authenticated" });
             }
 
+            // Check if user owns the task
             var task = await _context.Tasks.FirstOrDefaultAsync(t => t.Id == taskId && t.UserId == userId);
+
+            // If not owner, check if it's a shared task with CanAddSubtasks permission (which includes deleting subtasks)
             if (task == null)
             {
-                return NotFound(new { message = "Task not found" });
+                var sharedTask = await _context.SharedTasks
+                    .Include(st => st.Task)
+                    .Include(st => st.Participants)
+                    .FirstOrDefaultAsync(st => st.TaskId == taskId &&
+                        (st.OwnerId == userId || st.Participants.Any(p => p.UserId == userId)));
+
+                if (sharedTask == null || !sharedTask.CanAddSubtasks)
+                {
+                    return NotFound(new { message = "Task not found or you don't have permission to delete subtasks" });
+                }
+
+                task = sharedTask.Task;
             }
 
             var subTask = await _context.SubTasks.FirstOrDefaultAsync(st => st.Id == subTaskId && st.TaskId == taskId);
@@ -419,6 +588,13 @@ namespace Nivoxar.Controllers
         public string? RecurringFrequency { get; set; }
         public DateTime? RecurringEndDate { get; set; }
         public int? CategoryId { get; set; }
+        public List<CreateSubTaskDto>? SubTasks { get; set; }
+    }
+
+    public class CreateSubTaskDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public bool Completed { get; set; } = false;
     }
 
     public class UpdateTaskRequest
@@ -433,6 +609,7 @@ namespace Nivoxar.Controllers
         public string? RecurringFrequency { get; set; }
         public DateTime? RecurringEndDate { get; set; }
         public int? CategoryId { get; set; }
+        public List<CreateSubTaskDto>? SubTasks { get; set; } // Support adding new subtasks during edit
     }
 
     public class CreateSubTaskRequest

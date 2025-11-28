@@ -194,7 +194,25 @@ namespace Nivoxar.Controllers
             };
 
             _context.Friends.Add(friendRequest);
+
+            // Create notification for the recipient
+            var notification = new Notification
+            {
+                UserId = request.FriendId,
+                Type = "friend-request",
+                Title = "New Friend Request",
+                Message = $"{currentUser.Name} sent you a friend request",
+                Data = System.Text.Json.JsonSerializer.Serialize(new { friendRequestId = friendRequest.Id, senderId = userId, senderName = currentUser.Name }),
+                Read = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Notifications.Add(notification);
+
+            Console.WriteLine($"[DEBUG] Creating notification for UserId: {request.FriendId}, Type: friend-request");
+
             await _context.SaveChangesAsync();
+
+            Console.WriteLine($"[DEBUG] Notification saved with ID: {notification.Id}");
 
             return Ok(new
             {
@@ -238,6 +256,20 @@ namespace Nivoxar.Controllers
 
             friendRequest.Status = "accepted";
             friendRequest.AcceptedAt = DateTime.UtcNow;
+
+            // Create notification for the sender that their request was accepted
+            var acceptor = await _userManager.FindByIdAsync(userId);
+            var notification = new Notification
+            {
+                UserId = friendRequest.UserId, // Send to the original sender
+                Type = "friend-request-accepted",
+                Title = "Friend Request Accepted",
+                Message = $"{acceptor!.Name} accepted your friend request",
+                Data = System.Text.Json.JsonSerializer.Serialize(new { friendRequestId = friendRequest.Id, acceptorId = userId, acceptorName = acceptor.Name }),
+                Read = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.Notifications.Add(notification);
 
             await _context.SaveChangesAsync();
 

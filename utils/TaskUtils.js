@@ -1,6 +1,6 @@
 // TaskUtils.js - Utility functions for task management
 import { getAllCategoriesSync } from '../../services/CategoryService.js';
-import { isTaskShared } from '../../services/SharedTasksService.js';
+import Logger from './Logger.js';
 import { STORAGE_KEYS } from './StorageKeys.js';
 
 // Priority configuration (merged into one object)
@@ -27,10 +27,10 @@ export function getPriorityDisplayName(priorityNum) {
 export function saveTasksToLocalStorage(tasks) {
     try {
         localStorage.setItem(STORAGE_KEYS.TASKS, JSON.stringify(tasks));
-        console.log('✅ Saved tasks to localStorage');
+        Logger.info('✅ Saved tasks to localStorage');
         return true;
     } catch (error) {
-        console.error('❌ Failed to save tasks to localStorage:', error);
+        Logger.error('❌ Failed to save tasks to localStorage:', error);
         return false;
     }
 }
@@ -41,13 +41,13 @@ export function loadTasksFromLocalStorage() {
         const saved = localStorage.getItem(STORAGE_KEYS.TASKS);
         if (saved) {
             const tasks = JSON.parse(saved);
-            console.log('✅ Loaded tasks from localStorage:', tasks.length);
+            Logger.info('✅ Loaded tasks from localStorage:', tasks.length);
             return tasks;
         }
-        console.log('ℹ️ No tasks found in localStorage');
+        Logger.info('ℹ️ No tasks found in localStorage');
         return [];
     } catch (error) {
-        console.error('❌ Failed to load tasks from localStorage:', error);
+        Logger.error('❌ Failed to load tasks from localStorage:', error);
         return [];
     }
 }
@@ -130,29 +130,36 @@ export function calculateAnalytics(tasks) {
 // Get category color from CategoryService
 export function getCategoryColor(category) {
     if (!category) {
-        console.log('⚠️ No category provided, using default color');
         return '#6366f1'; // Default color
     }
-    
-    // Get categories from CategoryService
-    const categories = getAllCategoriesSync();
-    
-    console.log(`🎨 Getting color for category: "${category}"`);
-    console.log('  Available categories:', categories.map(c => `${c.id}:${c.name}`));
-    
-    // Find category by ID or name (case-insensitive)
-    const found = categories.find(cat => 
-        cat.id === category || 
-        cat.name.toLowerCase() === category.toLowerCase()
-    );
-    
-    if (found) {
-        console.log(`  ✅ Found: ${found.name} → ${found.color}`);
-        return found.color;
-    } else {
-        console.log(`  ❌ Not found! Using default color`);
-        return '#6366f1'; // Fallback to default
+
+    // Get categories from CategoryService (sync first, fallback to default if empty)
+    let categories = getAllCategoriesSync();
+
+    // If cache is empty, try to load it (this happens on first render)
+    if (!categories || categories.length === 0) {
+        // Return default color immediately to avoid blocking
+        // The cache will be populated by DashboardPage initialization
+        return '#6366f1';
     }
+
+    // If category is an object, extract the ID or name
+    let categoryValue = category;
+    if (typeof category === 'object' && category !== null) {
+        categoryValue = category.id || category.name || category;
+    }
+
+    // Find category by ID or name (case-insensitive)
+    const found = categories.find(cat => {
+        if (typeof categoryValue === 'number') {
+            return cat.id === categoryValue;
+        } else if (typeof categoryValue === 'string') {
+            return cat.id === categoryValue || cat.name.toLowerCase() === categoryValue.toLowerCase();
+        }
+        return false;
+    });
+
+    return found ? found.color : '#6366f1'; // Fallback to default if not found
 }
 
 // Create checkbox element
@@ -170,14 +177,24 @@ function createTaskCheckbox(task) {
 function createTaskHeader(task) {
     const header = document.createElement('div');
     header.className = 'task-header';
-    
-    // Get category name and color
-    const categoryName = task.category ? getCategoryName(task.category) : '';
-    const categoryColor = task.category ? getCategoryColor(task.category) : '';
-    
+
+    // Get category name and color - support both API format (Category object) and local format (category)
+    const categorySource = task.Category || task.category || task.categoryId;
+    const categoryName = categorySource ? getCategoryName(categorySource) : '';
+    const categoryColor = categorySource ? getCategoryColor(categorySource) : '';
+
+    // Check if task is shared
+    const isSharedTask = task.isSharedTask || false;
+    const sharedBadge = isSharedTask
+        ? `<span class="task-shared-badge" title="Shared by ${task.taskOwnerUsername || 'someone'}">
+            <i class="fas fa-users"></i> Shared
+           </span>`
+        : '';
+
     header.innerHTML = `
         <h3 class="task-title">${task.title}</h3>
         ${categoryName ? `<span class="task-category" style="background-color: ${categoryColor}; color: white;">${categoryName}</span>` : ''}
+        ${sharedBadge}
     `;
     return header;
 }
@@ -246,40 +263,63 @@ function createTaskActions(task) {
     const actions = document.createElement('div');
     actions.className = 'task-actions';
 
-    // SubTasks button
-    if (task.subTasks?.length > 0) {
-        const completedCount = task.subTasks.filter(st => st.completed).length;
+    // Check if this is a shared task and get permissions
+    const isSharedTask = task.isSharedTask || false;
+    const permissions = task.permissions || {};
+    const canEdit = isSharedTask ? (permissions.canEdit || false) : true;
+    const canDelete = isSharedTask ? (permissions.canDelete || false) : true;
+    const canAddSubtasks = isSharedTask ? (permissions.canAddSubtasks !== false) : true; // Default true for shared tasks
+    const canShare = isSharedTask ? (permissions.canShare || false) : true;
+
+    // SubTasks button - show if has subtasks OR can add subtasks
+    if (task.subTasks?.length > 0 || canAddSubtasks) {
+        const completedCount = task.subTasks?.filter(st => st.completed).length || 0;
+        const totalCount = task.subTasks?.length || 0;
         const subtasksBtn = document.createElement('button');
         subtasksBtn.className = 'task-action-btn task-subtasks-btn';
-        subtasksBtn.title = 'Manage SubTasks';
-        subtasksBtn.innerHTML = `
-            <i class="fas fa-list-check"></i>
-            <span class="subtasks-count">${completedCount}/${task.subTasks.length}</span>
-        `;
+        subtasksBtn.title = canAddSubtasks ? 'Manage SubTasks' : 'View SubTasks';
+        subtasksBtn.innerHTML = totalCount > 0
+            ? `<i class="fas fa-list-check"></i><span class="subtasks-count">${completedCount}/${totalCount}</span>`
+            : '<i class="fas fa-list-check"></i>';
+        if (!canAddSubtasks) {
+            subtasksBtn.classList.add('disabled');
+            subtasksBtn.disabled = true;
+        }
         actions.appendChild(subtasksBtn);
     }
 
-    // Share button - check shared status on click, not during render
-    const shareBtn = document.createElement('button');
-    shareBtn.className = 'task-action-btn task-share';
-    shareBtn.title = 'Share Task';
-    shareBtn.innerHTML = '<i class="fas fa-share-nodes"></i>';
-    shareBtn.dataset.taskId = task.id; // Store task ID for lazy loading
-    actions.appendChild(shareBtn);
+    // Share button - only show if can share OR already shared (to view)
+    const isShared = task.isShared || task.sharedTask || isSharedTask;
+    if (canShare || isShared) {
+        const shareBtn = document.createElement('button');
+        shareBtn.className = `task-action-btn task-share${isShared ? ' shared' : ''}`;
+        shareBtn.title = isShared ? 'Task is Shared' : 'Share Task';
+        shareBtn.innerHTML = '<i class="fas fa-share-nodes"></i>';
+        shareBtn.dataset.taskId = task.id;
+        if (!canShare && isShared) {
+            shareBtn.classList.add('disabled');
+            shareBtn.disabled = true;
+        }
+        actions.appendChild(shareBtn);
+    }
 
-    // Edit button
-    const editBtn = document.createElement('button');
-    editBtn.className = 'task-action-btn task-edit';
-    editBtn.title = 'Edit';
-    editBtn.innerHTML = '<i class="fas fa-edit"></i>';
-    actions.appendChild(editBtn);
+    // Edit button - only show if can edit
+    if (canEdit) {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'task-action-btn task-edit';
+        editBtn.title = 'Edit';
+        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+        actions.appendChild(editBtn);
+    }
 
-    // Delete button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'task-action-btn task-delete';
-    deleteBtn.title = 'Delete';
-    deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
-    actions.appendChild(deleteBtn);
+    // Delete button - only show if can delete
+    if (canDelete) {
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className = 'task-action-btn task-delete';
+        deleteBtn.title = 'Delete';
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+        actions.appendChild(deleteBtn);
+    }
 
     return actions;
 }
@@ -290,9 +330,10 @@ export function createTaskElement(task) {
     const taskEl = document.createElement('div');
     taskEl.className = `task-item ${task.completed ? 'completed' : ''} priority-${getPriorityName(task.priority)}`;
     taskEl.dataset.taskId = task.id;
-    
-    // Apply category color
-    const borderColor = getCategoryColor(task.category);
+
+    // Apply category color - support both API format (Category object) and local format (category)
+    const categoryForBorder = task.Category || task.category || task.categoryId;
+    const borderColor = getCategoryColor(categoryForBorder);
     taskEl.style.borderLeftColor = borderColor;
     
     // Add overdue class
@@ -367,9 +408,18 @@ export function getAllAvailableCategories() {
 // Get category name by ID (useful for display)
 export function getCategoryName(categoryId) {
     if (!categoryId) return '';
-    
+
+    // If categoryId is an object, extract the ID or name
+    let categoryValue = categoryId;
+    if (typeof categoryId === 'object' && categoryId !== null) {
+        // If it's already a category object with name, return the name
+        if (categoryId.name) return categoryId.name;
+        // Otherwise try to get the id
+        categoryValue = categoryId.id || categoryId;
+    }
+
     const categories = getAllCategoriesSync();
-    const found = categories.find(cat => cat.id === categoryId);
-    
-    return found?.name || categoryId;
+    const found = categories.find(cat => cat.id === categoryValue || cat.name === categoryValue);
+
+    return found?.name || String(categoryValue);
 }

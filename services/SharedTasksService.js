@@ -1,5 +1,6 @@
 // SharedTasksService.js - Shared Tasks Management
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
+import Logger from '../utils/Logger.js';
 import { getCurrentUser, apiRequest } from './AuthService.js';
 
 // ===== USER ROLES =====
@@ -16,7 +17,7 @@ export async function getAllSharedTasks() {
         });
         return data;
     } catch (error) {
-        console.error('Error loading shared tasks:', error);
+        Logger.error('Error loading shared tasks:', error);
         return [];
     }
 }
@@ -27,7 +28,7 @@ export async function getMySharedTasks() {
         // Backend already filters for current user
         return await getAllSharedTasks();
     } catch (error) {
-        console.error('Error loading my shared tasks:', error);
+        Logger.error('Error loading my shared tasks:', error);
         return [];
     }
 }
@@ -40,7 +41,12 @@ export async function getSharedTaskByTaskId(taskId) {
         });
         return data;
     } catch (error) {
-        console.error('Error getting shared task by task ID:', error);
+        // Don't log as error if task is simply not shared (404 is expected)
+        if (error.message && error.message.includes('Shared task not found')) {
+            Logger.debug('Task is not shared:', taskId);
+        } else {
+            Logger.error('Error getting shared task by task ID:', error);
+        }
         return null;
     }
 }
@@ -61,7 +67,7 @@ export function checkPermission(sharedTask, userId) {
     }
 
     // Check if user is a participant
-    const participant = sharedTask.sharedWith.find(p => p.userId === userId);
+    const participant = sharedTask.participants.find(p => p.userId === userId);
     return participant !== undefined;
 }
 
@@ -75,10 +81,10 @@ export async function shareTask(taskId, taskTitle, userIds) {
                 userIds: userIds
             })
         });
-        console.log('✅ Task shared successfully:', data);
+        Logger.success(' Task shared successfully:', data);
         return data;
     } catch (error) {
-        console.error('❌ Error sharing task:', error);
+        Logger.error(' Error sharing task:', error);
         throw error;
     }
 }
@@ -92,10 +98,10 @@ export async function addParticipants(sharedTaskId, userIds) {
                 userIds: userIds
             })
         });
-        console.log('✅ Participants added successfully');
+        Logger.success(' Participants added successfully');
         return data;
     } catch (error) {
-        console.error('❌ Error adding participants:', error);
+        Logger.error(' Error adding participants:', error);
         throw error;
     }
 }
@@ -106,10 +112,10 @@ export async function removeParticipant(sharedTaskId, userId) {
         await apiRequest(`/sharedtasks/${sharedTaskId}/participants/${userId}`, {
             method: 'DELETE'
         });
-        console.log('✅ Participant removed successfully');
+        Logger.success(' Participant removed successfully');
         return true;
     } catch (error) {
-        console.error('❌ Error removing participant:', error);
+        Logger.error(' Error removing participant:', error);
         throw error;
     }
 }
@@ -124,7 +130,7 @@ export async function leaveSharedTask(sharedTaskId) {
 
         return await removeParticipant(sharedTaskId, currentUser.id);
     } catch (error) {
-        console.error('❌ Error leaving shared task:', error);
+        Logger.error(' Error leaving shared task:', error);
         throw error;
     }
 }
@@ -135,10 +141,10 @@ export async function unshareTask(taskId) {
         await apiRequest(`/sharedtasks/task/${taskId}`, {
             method: 'DELETE'
         });
-        console.log('✅ Task unshared successfully');
+        Logger.success(' Task unshared successfully');
         return true;
     } catch (error) {
-        console.error('❌ Error unsharing task:', error);
+        Logger.error(' Error unsharing task:', error);
         throw error;
     }
 }
@@ -149,9 +155,9 @@ export async function updateLastEdited(sharedTaskId) {
         await apiRequest(`/sharedtasks/${sharedTaskId}/lastedited`, {
             method: 'PUT'
         });
-        console.log('✅ Last edited updated');
+        Logger.success(' Last edited updated');
     } catch (error) {
-        console.error('❌ Error updating last edited:', error);
+        Logger.error(' Error updating last edited:', error);
     }
 }
 
@@ -163,7 +169,7 @@ export async function getParticipants(taskId) {
 
         return sharedTask.participants || [];
     } catch (error) {
-        console.error('Error getting participants:', error);
+        Logger.error('Error getting participants:', error);
         return [];
     }
 }
@@ -177,7 +183,7 @@ export async function getAllParticipants(taskId) {
         // Backend already includes owner in participants
         return sharedTask.participants || [];
     } catch (error) {
-        console.error('Error getting all participants:', error);
+        Logger.error('Error getting all participants:', error);
         return [];
     }
 }
@@ -190,7 +196,7 @@ export async function isOwner(taskId, userId) {
 
         return sharedTask.ownerId === userId;
     } catch (error) {
-        console.error('Error checking ownership:', error);
+        Logger.error('Error checking ownership:', error);
         return false;
     }
 }
@@ -199,4 +205,20 @@ export async function isOwner(taskId, userId) {
 export async function getSharedTasksCount() {
     const tasks = await getMySharedTasks();
     return tasks.length;
+}
+
+// ===== UPDATE PARTICIPANT PERMISSIONS =====
+export async function updateParticipantPermissions(taskId, permissions) {
+    try {
+        const data = await apiRequest(`/sharedtasks/${taskId}/permissions`, {
+            method: 'PUT',
+            body: JSON.stringify(permissions)
+        });
+
+        Logger.success(' Permissions updated successfully');
+        return data;
+    } catch (error) {
+        Logger.error(' Error updating permissions:', error);
+        throw error;
+    }
 }

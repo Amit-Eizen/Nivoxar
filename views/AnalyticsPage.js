@@ -1,5 +1,6 @@
 import { getCurrentUser, logout } from '../services/AuthService.js';
 import { getAllCategories } from '../services/CategoryService.js';
+import Logger from '../utils/Logger.js';
 import { calculateAnalytics, isTaskOverdue } from '../utils/TaskUtils.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 
@@ -49,7 +50,7 @@ async function init() {
         hideLoading();
         
     } catch (error) {
-        console.error('Failed to initialize analytics:', error);
+        Logger.error('Failed to initialize analytics:', error);
         showError('Failed to load analytics. Please refresh the page.');
         hideLoading();
     }
@@ -66,7 +67,7 @@ async function loadAnalyticsData() {
         state.categories = await getAllCategories();
 
     } catch (error) {
-        console.error('Error loading data:', error);
+        Logger.error('Error loading data:', error);
         throw error;
     }
 }
@@ -822,7 +823,7 @@ if (!window.__SPA_MODE__) {
  * Load Analytics page for SPA
  */
 export async function loadAnalyticsPage() {
-    console.log('📄 Loading Analytics Page...');
+    Logger.debug('📄 Loading Analytics Page...');
 
     // Load CSS and Chart.js
     await loadPageCSS();
@@ -830,7 +831,7 @@ export async function loadAnalyticsPage() {
     // Get app container
     const app = document.getElementById('app');
     if (!app) {
-        console.error('App container not found');
+        Logger.error('App container not found');
         return;
     }
 
@@ -839,19 +840,19 @@ export async function loadAnalyticsPage() {
 
     // Wait for Chart.js to load if needed
     if (!window.Chart) {
-        console.log('⏳ Waiting for Chart.js to load...');
+        Logger.debug('⏳ Waiting for Chart.js to load...');
         await new Promise(resolve => {
             const checkChart = setInterval(() => {
                 if (window.Chart) {
                     clearInterval(checkChart);
-                    console.log('✅ Chart.js loaded!');
+                    Logger.success(' Chart.js loaded!');
                     resolve();
                 }
             }, 50);
             // Timeout after 5 seconds
             setTimeout(() => {
                 clearInterval(checkChart);
-                console.error('❌ Chart.js failed to load');
+                Logger.error(' Chart.js failed to load');
                 resolve();
             }, 5000);
         });
@@ -865,7 +866,7 @@ export async function loadAnalyticsPage() {
  * Load CSS and Scripts for Analytics page
  */
 async function loadPageCSS() {
-    console.log('📦 Loading Analytics CSS and scripts...');
+    Logger.debug('📦 Loading Analytics CSS and scripts...');
 
     const cssFiles = [
         '/public/styles/dashboard/variables.css',
@@ -875,18 +876,18 @@ async function loadPageCSS() {
 
     // Remove existing page-specific stylesheets
     const oldLinks = document.querySelectorAll('link[data-page-style]');
-    console.log(`🗑️ Removing ${oldLinks.length} old stylesheets`);
+    Logger.debug(`🗑️ Removing ${oldLinks.length} old stylesheets`);
     oldLinks.forEach(link => link.remove());
 
     // Load new stylesheets
     cssFiles.forEach(href => {
         const existing = document.querySelector(`link[href="${href}"]`);
         if (existing) {
-            console.log(`⚠️ CSS already exists: ${href}`);
+            Logger.debug(`⚠️ CSS already exists: ${href}`);
             return;
         }
 
-        console.log(`✅ Loading CSS: ${href}`);
+        Logger.debug(`✅ Loading CSS: ${href}`);
         const link = document.createElement('link');
         link.rel = 'stylesheet';
         link.href = href;
@@ -896,13 +897,13 @@ async function loadPageCSS() {
 
     // Load Chart.js if not already loaded
     if (!window.Chart) {
-        console.log('📊 Loading Chart.js...');
+        Logger.debug('📊 Loading Chart.js...');
         return new Promise((resolve) => {
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
             script.setAttribute('data-page-script', 'true');
             script.onload = () => {
-                console.log('✅ Chart.js loaded!');
+                Logger.success(' Chart.js loaded!');
                 resolve();
             };
             document.head.appendChild(script);

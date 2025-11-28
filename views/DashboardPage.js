@@ -1,5 +1,6 @@
 // DashboardPage.js
 import { initTaskManager, renderTasks, updateStats } from '../scripts/managers/TaskManager.js';
+import Logger from '../utils/Logger.js';
 import { initSubTasksManager } from '../scripts/managers/SubTasksManager.js';
 import { initializePopups } from '../scripts/managers/PopupFactory.js';
 import { setupAllEventListeners } from '../scripts/managers/EventHandlers.js';
@@ -7,6 +8,8 @@ import { initNavbar } from '../scripts/components/Navbar.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 import { getAllNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../services/NotificationsService.js';
 import { getAllCategories } from '../services/CategoryService.js';
+import { filterByCategory } from '../services/FilterService.js';
+import { router } from '../scripts/core/Router.js';
 
 export const dashboardState = {
     tasks: [],
@@ -23,7 +26,7 @@ export const dashboardState = {
 };
 
 async function initializeDashboard() {
-    console.log('🚀 Initializing Dashboard...');
+    Logger.debug('🚀 Initializing Dashboard...');
 
     // Check authentication
     const currentUser = requireAuth();
@@ -40,7 +43,7 @@ async function initializeDashboard() {
     const categoryFilter = urlParams.get('categoryFilter');
 
     if (categoryFilter) {
-        console.log('📌 Category filter detected:', categoryFilter);
+        Logger.debug('📌 Category filter detected:', categoryFilter);
         dashboardState.currentCategory = categoryFilter;
     }
 
@@ -55,17 +58,24 @@ async function initializeDashboard() {
     initSubTasksManager();
     setupAllEventListeners();
 
+    // Listen for category updates for real-time UI refresh
+    setupCategoryUpdateListener();
+
     setTimeout(() => {
         initializePopups();
         hideLoading();
-        updateDashboard();
 
-        // Show filter notification if category is filtered
+        // Apply category filter if specified in URL
         if (categoryFilter) {
+            Logger.debug('📌 Applying category filter:', categoryFilter);
+            dashboardState.currentCategory = categoryFilter;
+            dashboardState.filteredTasks = filterByCategory(dashboardState.tasks, categoryFilter);
             showCategoryFilterNotification(categoryFilter);
         }
 
-        console.log('✅ Dashboard initialized!');
+        updateDashboard();
+
+        Logger.success(' Dashboard initialized!');
     }, 500);
 }
 
@@ -97,44 +107,78 @@ export function updateDashboard() {
     updateStats();
     renderTasks();
     updateDashboardSubtitle();
+    updateSectionTitle();
 }
 
 function updateDashboardSubtitle() {
     const subtitle = document.getElementById('dashboardSubtitle');
     const hour = new Date().getHours();
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-    
+
     const messages = ['Ready to be productive?', 'Let\'s get things done!', 'You\'ve got this!'];
     const message = messages[Math.floor(Math.random() * messages.length)];
-    
+
     subtitle.innerHTML = `${greeting}, <strong>${dashboardState.user.name}</strong>! <span class="status-indicator">${message}</span>`;
 }
 
-function showCategoryFilterNotification(categoryId) {
-    // Import getCategoryName from TaskUtils
-    import('../utils/TaskUtils.js').then(module => {
-        const categoryName = module.getCategoryName(categoryId);
-        
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = 'category-filter-notification';
-        notification.innerHTML = `
-            <div class="filter-message">
-                <i class="fas fa-filter"></i>
-                <span>Showing tasks from: <strong>${categoryName}</strong></span>
-            </div>
-            <button class="clear-filter-btn" onclick="window.location.href='/views/DashboardPage.html'">
-                <i class="fas fa-times"></i> Clear Filter
-            </button>
-        `;
-        
-        // Insert notification at the top of the dashboard
-        const container = document.querySelector('.dashboard-container');
-        const header = document.querySelector('.dashboard-header');
-        if (container && header) {
-            container.insertBefore(notification, header.nextSibling);
+function updateSectionTitle() {
+    const sectionTitle = document.querySelector('.section-title');
+    if (!sectionTitle) return;
+
+    // If no filter is active, reset to default
+    if (!dashboardState.currentCategory || dashboardState.currentCategory === 'all') {
+        sectionTitle.innerHTML = '<i class="fas fa-list"></i> Your Tasks';
+
+        // Remove Clear Filter button if exists
+        const clearBtn = document.getElementById('clearFilterBtnHeader');
+        if (clearBtn) clearBtn.remove();
+    }
+}
+
+async function showCategoryFilterNotification(categoryId) {
+    // Make sure categories are loaded first
+    const categories = await getAllCategories();
+
+    // Find the category name
+    const category = categories.find(cat => String(cat.id) === String(categoryId));
+    const categoryName = category ? category.name : String(categoryId);
+
+    // Update section title to show category name
+    const sectionTitle = document.querySelector('.section-title');
+    if (sectionTitle) {
+        sectionTitle.innerHTML = `<i class="fas fa-list"></i> Your Tasks - ${categoryName}`;
+    }
+
+    // Add Clear Filter button next to New Task button
+    const buttonsContainer = document.querySelector('.section-header-buttons');
+    if (buttonsContainer) {
+        // Remove existing clear filter button if any
+        const existingBtn = document.getElementById('clearFilterBtnHeader');
+        if (existingBtn) existingBtn.remove();
+
+        // Create clear filter button
+        const clearBtn = document.createElement('button');
+        clearBtn.id = 'clearFilterBtnHeader';
+        clearBtn.className = 'btn btn-secondary';
+        clearBtn.innerHTML = '<i class="fas fa-times"></i> Clear Filter';
+
+        // Insert before New Task button
+        const createTaskBtn = document.getElementById('createTaskBtn');
+        if (createTaskBtn) {
+            buttonsContainer.insertBefore(clearBtn, createTaskBtn);
         }
-    });
+
+        // Add event listener
+        clearBtn.addEventListener('click', () => {
+            if (window.__SPA_MODE__) {
+                import('../scripts/core/Router.js').then(({ router }) => {
+                    router.navigate('/dashboard', true);
+                });
+            } else {
+                window.location.href = '/views/DashboardPage.html';
+            }
+        });
+    }
 }
 
 // ===== NOTIFICATIONS POPUP =====
@@ -189,12 +233,13 @@ function initNotificationsPopup() {
         });
     }
 
-    // Close popup when clicking outside
-    document.addEventListener('click', (e) => {
+    // Close popup when clicking outside - store handler for cleanup
+    dashboardNotificationPopupClickHandler = (e) => {
         if (!popup.contains(e.target) && !notificationBtn.contains(e.target)) {
             popup.style.display = 'none';
         }
-    });
+    };
+    document.addEventListener('click', dashboardNotificationPopupClickHandler);
 }
 
 async function loadNotificationsPopup() {
@@ -277,6 +322,26 @@ window.dashboardNotifications = {
     handleNotificationClick
 };
 
+/**
+ * Setup listener for category updates to refresh tasks in real-time
+ */
+function setupCategoryUpdateListener() {
+    categoryUpdateHandler = async (event) => {
+        const { categoryId, updatedData } = event.detail;
+        Logger.debug('📢 Category updated event received:', categoryId, updatedData);
+
+        // Cache already reloaded in CategoryService.updateCategory()
+        // Just re-render tasks to reflect new category colors/names
+        renderTasks();
+        updateStats();
+
+        Logger.success('✅ Tasks updated with new category data');
+    };
+
+    window.addEventListener('categoryUpdated', categoryUpdateHandler);
+    Logger.debug('👂 Category update listener registered');
+}
+
 // For standalone HTML page (MPA mode)
 if (!window.__SPA_MODE__) {
     document.addEventListener('DOMContentLoaded', initializeDashboard);
@@ -284,11 +349,42 @@ if (!window.__SPA_MODE__) {
 
 // ===== SPA MODE =====
 
+// Store event listeners for cleanup
+let dashboardNotificationPopupClickHandler = null;
+let categoryUpdateHandler = null;
+
+/**
+ * Cleanup function to remove event listeners and prevent memory leaks
+ */
+export function cleanupDashboardPage() {
+    Logger.debug('🧹 Cleaning up Dashboard Page...');
+
+    // Remove notification popup click listener
+    if (dashboardNotificationPopupClickHandler) {
+        document.removeEventListener('click', dashboardNotificationPopupClickHandler);
+        dashboardNotificationPopupClickHandler = null;
+    }
+
+    // Remove category update listener
+    if (categoryUpdateHandler) {
+        window.removeEventListener('categoryUpdated', categoryUpdateHandler);
+        categoryUpdateHandler = null;
+    }
+
+    // Remove notification popup from DOM
+    const notificationPopup = document.getElementById('notificationsPopup');
+    if (notificationPopup) {
+        notificationPopup.remove();
+    }
+
+    Logger.debug('✅ Dashboard Page cleaned up');
+}
+
 /**
  * Load Dashboard page for SPA
  */
 export async function loadDashboardPage() {
-    console.log('📄 Loading Dashboard Page...');
+    Logger.debug('📄 Loading Dashboard Page...');
 
     // Load CSS
     loadPageCSS();
@@ -296,12 +392,15 @@ export async function loadDashboardPage() {
     // Get app container
     const app = document.getElementById('app');
     if (!app) {
-        console.error('App container not found');
+        Logger.error('App container not found');
         return;
     }
 
     // Inject HTML
     app.innerHTML = getPageHTML();
+
+    // Register cleanup function with router
+    router.registerPageCleanup(cleanupDashboardPage);
 
     // Initialize Dashboard
     initializeDashboard();
@@ -420,9 +519,11 @@ function getPageHTML() {
                         <h2 class="section-title">
                             <i class="fas fa-list"></i> Your Tasks
                         </h2>
-                        <button class="btn btn-primary" id="createTaskBtn">
-                            <i class="fas fa-plus"></i> New Task
-                        </button>
+                        <div class="section-header-buttons">
+                            <button class="btn btn-primary" id="createTaskBtn">
+                                <i class="fas fa-plus"></i> New Task
+                            </button>
+                        </div>
                     </div>
                     <div id="tasksList" class="tasks-list"></div>
                     <div id="emptyState" class="empty-state" style="display: none;">

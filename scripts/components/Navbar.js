@@ -1,3 +1,4 @@
+import Logger from '../../utils/Logger.js';
 // Navbar.js - Navigation component with authentication
 import { getCurrentUser, logout, checkAuth } from '../../services/AuthService.js';
 
@@ -64,7 +65,7 @@ export function createNavbar() {
                             ? `<div class="user-avatar"><img src="${currentUser.profilePicture}" alt="Profile"></div>`
                             : `<div class="user-avatar"><i class="fas fa-user-circle"></i></div>`
                         }
-                        <span>${currentUser.username || currentUser.name || currentUser.email}</span>
+                        <span>${currentUser.name || currentUser.username || currentUser.email}</span>
                     </div>
                     <button class="btn-logout" id="logoutBtn">
                         <i class="fas fa-sign-out-alt"></i>
@@ -81,7 +82,7 @@ export function initNavbar() {
     const navbarContainer = document.getElementById('navbarContainer');
     
     if (!navbarContainer) {
-        console.warn('⚠️ Navbar container not found');
+        Logger.warn('⚠️ Navbar container not found');
         return;
     }
     
@@ -108,7 +109,7 @@ export function initNavbar() {
         });
     }
 
-    console.log('✅ Navbar initialized');
+    Logger.success(' Navbar initialized');
 }
 
 // Handle logout
@@ -126,7 +127,7 @@ export async function renderNavbar() {
     const navbarContainer = document.getElementById('navbarContainer');
 
     if (!navbarContainer) {
-        console.warn('⚠️ Navbar container not found');
+        Logger.warn('⚠️ Navbar container not found');
         return;
     }
 
@@ -153,5 +154,5 @@ export async function renderNavbar() {
         });
     }
 
-    console.log('✅ Navbar rendered');
+    Logger.success(' Navbar rendered');
 }

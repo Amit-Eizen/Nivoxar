@@ -24,11 +24,12 @@ builder.Services.AddDbContext<NivoxarDbContext>(options =>
 // Add Identity
 builder.Services.AddIdentity<User, IdentityRole>(options =>
 {
-    options.Password.RequireDigit = false;
-    options.Password.RequiredLength = 4;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireLowercase = false;
+    // Strengthen password requirements for security
+    options.Password.RequireDigit = true;           // Require at least one digit (0-9)
+    options.Password.RequiredLength = 8;            // Minimum 8 characters
+    options.Password.RequireNonAlphanumeric = true; // Require special character (!@#$%^&*)
+    options.Password.RequireUppercase = true;       // Require uppercase letter (A-Z)
+    options.Password.RequireLowercase = true;       // Require lowercase letter (a-z)
 })
 .AddEntityFrameworkStores<NivoxarDbContext>()
 .AddDefaultTokenProviders();

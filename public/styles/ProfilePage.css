@@ -60,8 +60,13 @@
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
     backdrop-filter: blur(30px);
-    overflow: hidden;
     margin-bottom: 1.5rem;
+}
+
+/* Add Friend card needs higher z-index for dropdown */
+.add-friend-card {
+    position: relative;
+    z-index: 10;
 }
 
 .card-header {
@@ -192,10 +197,25 @@
     cursor: not-allowed;
 }
 
+/* Input with buttons wrapper */
+.input-with-buttons {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.input-with-buttons .form-input {
+    flex: 1;
+}
+
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
 .edit-btn {
-    position: absolute;
-    right: 10px;
-    top: 38px;
     background: rgba(99, 102, 241, 0.1);
     border: 1px solid rgba(99, 102, 241, 0.3);
     color: var(--color-primary);
@@ -203,10 +223,22 @@
     border-radius: var(--radius-md);
     cursor: pointer;
     transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 .edit-btn:hover {
     background: rgba(99, 102, 241, 0.2);
+}
+
+/* Field error message */
+.field-error {
+    color: var(--color-danger);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid var(--color-danger);
+    border-radius: var(--radius-sm);
 }
 
 /* Badges */
@@ -531,5 +563,157 @@
 .notifications-list::-webkit-scrollbar-thumb:hover,
 .requests-list::-webkit-scrollbar-thumb:hover,
 .friends-list::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary-dark);
+}
+
+/* ===== SEARCH RESULTS DROPDOWN ===== */
+.search-results-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-top: 0.5rem;
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 99999;
+    display: none;
+}
+
+.search-result-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.search-result-item:last-child {
+    border-bottom: none;
+}
+
+.search-result-item:hover {
+    background: var(--bg-hover);
+}
+
+.search-result-item.no-results {
+    cursor: default;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 1rem;
+}
+
+.search-result-item.no-results:hover {
+    background: transparent;
+}
+
+.user-avatar-small {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.user-avatar-small img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-avatar-small i {
+    font-size: 1.2rem;
+    color: var(--text-muted);
+}
+
+.user-info-small {
+    flex: 1;
+    min-width: 0;
+}
+
+.user-name-small {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-email-small {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* User action button (+ and X buttons) */
+.user-action-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    font-size: 1rem;
+}
+
+.user-action-btn.send-request {
+    background: var(--color-primary);
+    color: white;
+}
+
+.user-action-btn.send-request:hover {
+    background: var(--color-primary-dark);
+    transform: scale(1.1);
+}
+
+.user-action-btn.cancel-request {
+    background: var(--color-danger);
+    color: white;
+}
+
+.user-action-btn.cancel-request:hover {
+    background: #dc2626;
+    transform: scale(1.1);
+}
+
+.user-action-btn.friend-status {
+    background: var(--color-success);
+    color: white;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+/* Scrollbar for dropdown */
+.search-results-dropdown::-webkit-scrollbar {
+    width: 8px;
+}
+
+.search-results-dropdown::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+}
+
+.search-results-dropdown::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border-radius: 10px;
+}
+
+.search-results-dropdown::-webkit-scrollbar-thumb:hover {
     background: var(--color-primary-dark);
 }

@@ -2,6 +2,7 @@
 // Handles all task-related API calls
 
 import { apiRequest } from './AuthService.js';
+import Logger from '../utils/Logger.js';
 
 // ===== GET ALL TASKS =====
 
@@ -14,10 +15,10 @@ export async function getTasks() {
         const tasks = await apiRequest('/tasks', {
             method: 'GET'
         });
-        console.log('✅ Tasks loaded:', tasks.length);
+        Logger.success(' Tasks loaded:', tasks.length);
         return tasks;
     } catch (error) {
-        console.error('❌ Failed to load tasks:', error);
+        Logger.error(' Failed to load tasks:', error);
         throw error;
     }
 }
@@ -36,7 +37,7 @@ export async function getTask(taskId) {
         });
         return task;
     } catch (error) {
-        console.error('❌ Failed to load task:', error);
+        Logger.error(' Failed to load task:', error);
         throw error;
     }
 }
@@ -50,24 +51,34 @@ export async function getTask(taskId) {
  */
 export async function createTask(taskData) {
     try {
+        const payload = {
+            title: taskData.title,
+            description: taskData.description || null,
+            priority: parseInt(taskData.priority) || 2,
+            dueDate: taskData.dueDate || null,
+            dueTime: taskData.dueTime || null,
+            isRecurring: taskData.recurring?.enabled || false,
+            recurringFrequency: taskData.recurring?.frequency || null,
+            recurringEndDate: taskData.recurring?.endDate || null,
+            categoryId: taskData.categoryId || null
+        };
+
+        // Add subtasks if they exist
+        if (taskData.subTasks && taskData.subTasks.length > 0) {
+            payload.subTasks = taskData.subTasks.map(st => ({
+                title: st.title,
+                completed: st.completed || false
+            }));
+        }
+
         const task = await apiRequest('/tasks', {
             method: 'POST',
-            body: JSON.stringify({
-                title: taskData.title,
-                description: taskData.description || null,
-                priority: parseInt(taskData.priority) || 2,
-                dueDate: taskData.dueDate || null,
-                dueTime: taskData.dueTime || null,
-                isRecurring: taskData.recurring?.enabled || false,
-                recurringFrequency: taskData.recurring?.frequency || null,
-                recurringEndDate: taskData.recurring?.endDate || null,
-                categoryId: taskData.categoryId || null
-            })
+            body: JSON.stringify(payload)
         });
-        console.log('✅ Task created:', task);
+        Logger.success(' Task created:', task);
         return task;
     } catch (error) {
-        console.error('❌ Failed to create task:', error);
+        Logger.error(' Failed to create task:', error);
         throw error;
     }
 }
@@ -82,25 +93,58 @@ export async function createTask(taskData) {
  */
 export async function updateTask(taskId, updates) {
     try {
+        // Extract category ID (support both 'category' and 'categoryId' keys)
+        let categoryId = updates.categoryId || updates.category;
+        if (typeof categoryId === 'object' && categoryId !== null) {
+            categoryId = categoryId.id || categoryId.categoryId;
+        }
+        categoryId = categoryId ? parseInt(categoryId) : null;
+
+        const payload = {
+            title: updates.title,
+            description: updates.description,
+            priority: updates.priority,
+            categoryId: categoryId
+        };
+
+        // Only include fields that have actual values (not empty strings)
+        if (updates.dueDate) payload.dueDate = updates.dueDate;
+        if (updates.dueTime) payload.dueTime = updates.dueTime;
+        if (updates.completed !== undefined) payload.completed = updates.completed;
+
+        // Only include recurring fields if recurring is enabled
+        if (updates.recurring?.enabled) {
+            payload.isRecurring = true;
+            payload.recurringFrequency = updates.recurring.frequency;
+            if (updates.recurring.endDate) {
+                payload.recurringEndDate = updates.recurring.endDate;
+            }
+        } else if (updates.recurring !== undefined) {
+            // If recurring object exists but not enabled, explicitly set to false
+            payload.isRecurring = false;
+            payload.recurringFrequency = null;
+            payload.recurringEndDate = null;
+        }
+
+        // IMPORTANT: Only add subtasks if explicitly provided and not empty
+        // For edit operations, subtasks should NOT be included (managed separately)
+        if (updates.subTasks && updates.subTasks.length > 0) {
+            payload.subTasks = updates.subTasks.map(st => ({
+                title: st.title || st.text,  // Support both 'title' and 'text' fields
+                completed: st.completed || false
+            }));
+        }
+
+        Logger.debug('📤 Sending update task payload:', payload);
+
         const task = await apiRequest(`/tasks/${taskId}`, {
             method: 'PUT',
-            body: JSON.stringify({
-                title: updates.title,
-                description: updates.description,
-                priority: updates.priority,
-                dueDate: updates.dueDate,
-                dueTime: updates.dueTime,
-                completed: updates.completed,
-                isRecurring: updates.recurring?.enabled,
-                recurringFrequency: updates.recurring?.frequency,
-                recurringEndDate: updates.recurring?.endDate,
-                categoryId: updates.categoryId
-            })
+            body: JSON.stringify(payload)
         });
-        console.log('✅ Task updated:', task);
+        Logger.success(' Task updated:', task);
         return task;
     } catch (error) {
-        console.error('❌ Failed to update task:', error);
+        Logger.error(' Failed to update task:', error);
         throw error;
     }
 }
@@ -117,9 +161,9 @@ export async function deleteTask(taskId) {
         await apiRequest(`/tasks/${taskId}`, {
             method: 'DELETE'
         });
-        console.log('✅ Task deleted:', taskId);
+        Logger.success(' Task deleted:', taskId);
     } catch (error) {
-        console.error('❌ Failed to delete task:', error);
+        Logger.error(' Failed to delete task:', error);
         throw error;
     }
 }
@@ -138,10 +182,10 @@ export async function toggleTaskCompletion(taskId, completed) {
             method: 'PUT',
             body: JSON.stringify({ completed })
         });
-        console.log('✅ Task completion toggled:', taskId, completed);
+        Logger.success(' Task completion toggled:', taskId, completed);
         return task;
     } catch (error) {
-        console.error('❌ Failed to toggle task:', error);
+        Logger.error(' Failed to toggle task:', error);
         throw error;
     }
 }
@@ -164,10 +208,10 @@ export async function addSubTask(taskId, subTaskData) {
                 order: subTaskData.order || 0
             })
         });
-        console.log('✅ SubTask added:', subTask);
+        Logger.success(' SubTask added:', subTask);
         return subTask;
     } catch (error) {
-        console.error('❌ Failed to add subtask:', error);
+        Logger.error(' Failed to add subtask:', error);
         throw error;
     }
 }
@@ -190,10 +234,10 @@ export async function updateSubTask(taskId, subTaskId, updates) {
                 order: updates.order
             })
         });
-        console.log('✅ SubTask updated:', subTask);
+        Logger.success(' SubTask updated:', subTask);
         return subTask;
     } catch (error) {
-        console.error('❌ Failed to update subtask:', error);
+        Logger.error(' Failed to update subtask:', error);
         throw error;
     }
 }
@@ -209,9 +253,9 @@ export async function deleteSubTask(taskId, subTaskId) {
         await apiRequest(`/tasks/${taskId}/subtasks/${subTaskId}`, {
             method: 'DELETE'
         });
-        console.log('✅ SubTask deleted:', subTaskId);
+        Logger.success(' SubTask deleted:', subTaskId);
     } catch (error) {
-        console.error('❌ Failed to delete subtask:', error);
+        Logger.error(' Failed to delete subtask:', error);
         throw error;
     }
 }
@@ -229,10 +273,10 @@ export async function toggleSubTaskCompletion(taskId, subTaskId, completed) {
             method: 'PUT',
             body: JSON.stringify({ completed })
         });
-        console.log('✅ SubTask completion toggled:', subTaskId, completed);
+        Logger.success(' SubTask completion toggled:', subTaskId, completed);
         return subTask;
     } catch (error) {
-        console.error('❌ Failed to toggle subtask:', error);
+        Logger.error(' Failed to toggle subtask:', error);
         throw error;
     }
 }

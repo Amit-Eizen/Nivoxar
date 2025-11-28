@@ -1,3 +1,4 @@
+import Logger from '../../utils/Logger.js';
 import { dashboardState } from '../../views/DashboardPage.js';
 import { renderTempSubTasks, renderSubTasks } from './SubTasksManager.js';
 import { populateCategorySelectAsync } from '../../services/CategoryService.js';
@@ -214,7 +215,7 @@ export function createSubTasksPopup() {
 
 // Initialize all popups
 export function initializePopups() {
-    console.log('🎨 Initializing popups...');
+    Logger.debug('🎨 Initializing popups...');
     
     const taskPopup = createTaskPopup();
     const subTasksPopup = createSubTasksPopup();
@@ -222,37 +223,41 @@ export function initializePopups() {
     document.body.appendChild(taskPopup);
     document.body.appendChild(subTasksPopup);
     
-    console.log('✅ Popups initialized');
+    Logger.success(' Popups initialized');
 }
 
 // Helper function to refresh category options in dropdown
 async function refreshCategoryDropdown(valueToSet = null) {
     const categorySelect = document.getElementById('taskCategory');
     if (!categorySelect) {
-        console.error('❌ Category select element not found!');
+        Logger.error('❌ Category select element not found!');
         return;
     }
 
-    console.log('🔄 Refreshing category dropdown...');
-    console.log('  Current value:', categorySelect.value);
-    console.log('  Value to set:', valueToSet);
+    Logger.debug('🔄 Refreshing category dropdown...');
+    Logger.debug('  Current value:', categorySelect.value);
+    Logger.debug('  Value to set:', valueToSet);
 
-    const currentValue = valueToSet !== null ? valueToSet : categorySelect.value;
+    // Extract category ID if it's an object
+    let currentValue = valueToSet !== null ? valueToSet : categorySelect.value;
+    if (typeof currentValue === 'object' && currentValue !== null) {
+        currentValue = currentValue.id || currentValue.categoryId;
+    }
 
     // Use async version to load from API
     await populateCategorySelectAsync(categorySelect, null, false); // No empty option for task creation
 
-    console.log('  New options count:', categorySelect.options.length);
+    Logger.debug('  New options count:', categorySelect.options.length);
 
     // Restore/set the value if it exists
     if (currentValue && categorySelect.querySelector(`option[value="${currentValue}"]`)) {
         categorySelect.value = currentValue;
-        console.log('  ✅ Set value to:', currentValue);
+        Logger.debug('  ✅ Set value to:', currentValue);
     } else {
-        console.log('  ℹ️ Value not found or empty');
+        Logger.debug('  ℹ️ Value not found or empty');
     }
 
-    console.log('✅ Category dropdown refreshed successfully');
+    Logger.success(' Category dropdown refreshed successfully');
 }
 
 // Open Task Popup
@@ -263,7 +268,7 @@ export function openTaskPopup(mode = 'create', task = null) {
     const form = document.getElementById('taskForm');
     
     if (!popup || !title || !submitBtn || !form) {
-        console.error('❌ Popup elements not found!');
+        Logger.error('❌ Popup elements not found!');
         return;
     }
     
@@ -295,9 +300,17 @@ export function openTaskPopup(mode = 'create', task = null) {
         document.getElementById('taskDescription').value = task.description || '';
         // Category already set by refreshCategoryDropdown
         document.getElementById('taskPriority').value = task.priority;
-        document.getElementById('taskDueDate').value = task.dueDate || '';
+
+        // Format dates for input[type="date"] - extract YYYY-MM-DD from ISO format
+        if (task.dueDate) {
+            const dueDate = task.dueDate.split('T')[0]; // Extract date part only
+            document.getElementById('taskDueDate').value = dueDate;
+        } else {
+            document.getElementById('taskDueDate').value = '';
+        }
+
         document.getElementById('taskDueTime').value = task.dueTime || '';
-        
+
         if (task.subTasks?.length > 0) {
             document.getElementById('taskHasSubTasks').checked = true;
             dashboardState.tempSubTasks = [...task.subTasks];
@@ -309,12 +322,19 @@ export function openTaskPopup(mode = 'create', task = null) {
             dashboardState.tempSubTasks = [];
             closeSubTasksSidePanel();
         }
-        
+
         if (task.recurring?.enabled) {
             document.getElementById('taskRecurring').checked = true;
             document.getElementById('recurringOptions').style.display = 'block';
             document.getElementById('recurringFrequency').value = task.recurring.frequency;
-            document.getElementById('recurringEndDate').value = task.recurring.endDate || '';
+
+            // Format recurring end date for input[type="date"]
+            if (task.recurring.endDate) {
+                const endDate = task.recurring.endDate.split('T')[0]; // Extract date part only
+                document.getElementById('recurringEndDate').value = endDate;
+            } else {
+                document.getElementById('recurringEndDate').value = '';
+            }
         } else {
             document.getElementById('taskRecurring').checked = false;
             document.getElementById('recurringOptions').style.display = 'none';

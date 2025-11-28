@@ -1,3 +1,4 @@
+import Logger from '../../utils/Logger.js';
 // Manages all category operations: CRUD, localStorage, rendering
 
 import {
@@ -25,7 +26,7 @@ export function getCategoriesSync() {
 // ===== CREATE NEW CATEGORY =====
 export async function createCategory(categoryData) {
     const newCategory = await createCategoryService(categoryData);
-    console.log('✅ Category created:', newCategory);
+    Logger.success(' Category created:', newCategory);
     return newCategory;
 }
 
@@ -34,11 +35,11 @@ export async function updateCategory(categoryId, updatedData) {
     const updated = await updateCategoryService(categoryId, updatedData);
 
     if (!updated) {
-        console.error('Category not found:', categoryId);
+        Logger.error('Category not found:', categoryId);
         return null;
     }
 
-    console.log('✅ Category updated:', updated);
+    Logger.success(' Category updated:', updated);
     return updated;
 }
 
@@ -47,11 +48,11 @@ export async function deleteCategory(categoryId) {
     const success = await deleteCategoryService(categoryId);
 
     if (!success) {
-        console.error('Category not found:', categoryId);
+        Logger.error('Category not found:', categoryId);
         return false;
     }
 
-    console.log('✅ Category deleted:', categoryId);
+    Logger.success(' Category deleted:', categoryId);
     return true;
 }
 
@@ -89,7 +90,7 @@ export function getCategoryOptionsHTML(selectedValue = null, includeEmpty = true
  */
 export function refreshCategorySelect(selectElement, valueToSelect = null) {
     if (!selectElement) {
-        console.error('❌ Select element not provided');
+        Logger.error('❌ Select element not provided');
         return;
     }
     
@@ -155,7 +156,7 @@ export async function renderCategories(containerId) {
     const emptyState = document.getElementById('emptyState');
 
     if (!container) {
-        console.error('Container not found:', containerId);
+        Logger.error('Container not found:', containerId);
         return;
     }
 
@@ -171,7 +172,7 @@ export async function renderCategories(containerId) {
         container.innerHTML = categories.map(cat => renderCategoryCard(cat)).join('');
     }
 
-    console.log(`📊 Rendered ${categories.length} categories`);
+    Logger.debug(`📊 Rendered ${categories.length} categories`);
 }
 
 // ===== RENDER COLOR OPTIONS =====

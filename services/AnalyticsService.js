@@ -1,5 +1,6 @@
 // AnalyticsService.js - Analytics and Statistics API Service
 // Handles all analytics-related API calls
+import Logger from '../utils/Logger.js';
 
 import { apiRequest } from './AuthService.js';
 
@@ -14,10 +15,10 @@ export async function getOverviewAnalytics() {
         const data = await apiRequest('/analytics/overview', {
             method: 'GET'
         });
-        console.log('✅ Analytics overview loaded');
+        Logger.success(' Analytics overview loaded');
         return data;
     } catch (error) {
-        console.error('❌ Failed to load analytics overview:', error);
+        Logger.error(' Failed to load analytics overview:', error);
         throw error;
     }
 }
@@ -34,10 +35,10 @@ export async function getProductivityStats(days = 30) {
         const data = await apiRequest(`/analytics/productivity?days=${days}`, {
             method: 'GET'
         });
-        console.log('✅ Productivity stats loaded');
+        Logger.success(' Productivity stats loaded');
         return data;
     } catch (error) {
-        console.error('❌ Failed to load productivity stats:', error);
+        Logger.error(' Failed to load productivity stats:', error);
         throw error;
     }
 }
@@ -53,10 +54,10 @@ export async function getCategoryStats() {
         const data = await apiRequest('/analytics/categories', {
             method: 'GET'
         });
-        console.log('✅ Category stats loaded');
+        Logger.success(' Category stats loaded');
         return data;
     } catch (error) {
-        console.error('❌ Failed to load category stats:', error);
+        Logger.error(' Failed to load category stats:', error);
         throw error;
     }
 }
@@ -73,10 +74,10 @@ export async function getTrends(months = 6) {
         const data = await apiRequest(`/analytics/trends?months=${months}`, {
             method: 'GET'
         });
-        console.log('✅ Trends data loaded');
+        Logger.success(' Trends data loaded');
         return data;
     } catch (error) {
-        console.error('❌ Failed to load trends:', error);
+        Logger.error(' Failed to load trends:', error);
         throw error;
     }
 }
@@ -92,10 +93,10 @@ export async function getRecurringStats() {
         const data = await apiRequest('/analytics/recurring', {
             method: 'GET'
         });
-        console.log('✅ Recurring tasks stats loaded');
+        Logger.success(' Recurring tasks stats loaded');
         return data;
     } catch (error) {
-        console.error('❌ Failed to load recurring stats:', error);
+        Logger.error(' Failed to load recurring stats:', error);
         throw error;
     }
 }
@@ -111,10 +112,10 @@ export async function getSharedTasksStats() {
         const data = await apiRequest('/analytics/shared', {
             method: 'GET'
         });
-        console.log('✅ Shared tasks stats loaded');
+        Logger.success(' Shared tasks stats loaded');
         return data;
     } catch (error) {
-        console.error('❌ Failed to load shared tasks stats:', error);
+        Logger.error(' Failed to load shared tasks stats:', error);
         throw error;
     }
 }

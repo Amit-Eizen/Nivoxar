@@ -1,5 +1,6 @@
 import { getAllCategories, getCategoryOptionsHTML } from '../services/CategoryService.js';
 import { getPriorityName, formatDate, formatTime, saveTasksToLocalStorage, loadTasksFromLocalStorage } from '../utils/TaskUtils.js';
+import Logger from '../utils/Logger.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 import { addTempSubTask, toggleTempSubTask, deleteTempSubTask, renderTempSubTasks, clearTempSubTasks } from '../scripts/managers/SubTasksManager.js';
@@ -45,7 +46,7 @@ async function initializeCalendar() {
         hideLoading();
 
     } catch (error) {
-        console.error('Failed to initialize calendar:', error);
+        Logger.error('Failed to initialize calendar:', error);
         hideLoading();
     }
 }
@@ -60,7 +61,7 @@ async function loadCalendarData() {
         state.categories = await getAllCategories();
 
     } catch (error) {
-        console.error('Error loading data:', error);
+        Logger.error('Error loading data:', error);
         throw error;
     }
 }
@@ -306,11 +307,11 @@ function renderMonthView() {
         let clickCount = 0;
         
         dayEl.addEventListener('click', (e) => {
-            console.log('Day clicked:', e.target.className);
+            Logger.debug('Day clicked:', e.target.className);
             
             // If clicked on a task, open more tasks modal
             if (e.target.classList.contains('day-task')) {
-                console.log('Task clicked!');
+                Logger.debug('Task clicked!');
                 const date = new Date(dayEl.dataset.date);
                 openMoreTasksModal(date);
                 return;
@@ -318,7 +319,7 @@ function renderMonthView() {
             
             // If clicked on "more tasks", open more tasks modal
             if (e.target.classList.contains('more-tasks')) {
-                console.log('More tasks clicked!');
+                Logger.debug('More tasks clicked!');
                 const date = new Date(dayEl.dataset.date);
                 openMoreTasksModal(date);
                 return;
@@ -326,12 +327,12 @@ function renderMonthView() {
             
             // Handle single vs double click on day cell
             clickCount++;
-            console.log('Click count:', clickCount);
+            Logger.debug('Click count:', clickCount);
             
             if (clickCount === 1) {
                 clickTimer = setTimeout(() => {
                     // Single click - go to day view
-                    console.log('Single click - switching to day view');
+                    Logger.debug('Single click - switching to day view');
                     const date = new Date(dayEl.dataset.date);
                     state.currentDate = date;
                     switchView('day');
@@ -339,7 +340,7 @@ function renderMonthView() {
                 }, 300);
             } else if (clickCount === 2) {
                 // Double click - create task
-                console.log('Double click - opening create modal');
+                Logger.debug('Double click - opening create modal');
                 clearTimeout(clickTimer);
                 const date = new Date(dayEl.dataset.date);
                 openCreateModalWithDate(date);
@@ -1069,7 +1070,7 @@ if (!window.__SPA_MODE__) {
  * Load Calendar page for SPA
  */
 export async function loadCalendarPage() {
-    console.log('📄 Loading Calendar Page...');
+    Logger.debug('📄 Loading Calendar Page...');
 
     // Load CSS
     loadPageCSS();
@@ -1077,7 +1078,7 @@ export async function loadCalendarPage() {
     // Get app container
     const app = document.getElementById('app');
     if (!app) {
-        console.error('App container not found');
+        Logger.error('App container not found');
         return;
     }
 

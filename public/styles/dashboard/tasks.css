@@ -34,6 +34,12 @@
     font-size: 20px;
 }
 
+.section-header-buttons {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
 .tasks-container {
     padding: 20px 40px 40px;
 }
@@ -233,6 +239,40 @@
     filter: brightness(1.1);
 }
 
+/* Shared Task Badge */
+.task-shared-badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    transition: all 0.2s ease;
+}
+
+.task-shared-badge i {
+    font-size: 10px;
+}
+
+.task-shared-badge:hover {
+    background: rgba(59, 130, 246, 0.25);
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* Disabled Action Buttons */
+.task-action-btn.disabled,
+.task-action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* Task Meta */
 .task-meta {
     display: flex;
@@ -406,6 +446,28 @@
     background: rgba(59, 130, 246, 0.2);
 }
 
+/* Share Button */
+.task-action-btn.task-share {
+    background: rgba(148, 163, 184, 0.1);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.task-action-btn.task-share:hover {
+    background: rgba(148, 163, 184, 0.2);
+}
+
+/* Share Button - Shared State (Green) */
+.task-action-btn.task-share.shared {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.task-action-btn.task-share.shared:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
 /* Delete Button */
 .task-actions .action-btn.delete-btn,
 .task-action-btn.delete-btn,
@@ -419,28 +481,6 @@
 .task-action-btn.delete-btn:hover,
 .task-action-btn.task-delete:hover {
     background: rgba(239, 68, 68, 0.2);
-}
-
-/* Share Button */
-.task-action-btn.task-share {
-    background: rgba(100, 116, 139, 0.1);
-    color: #64748b;
-    border: 1px solid rgba(100, 116, 139, 0.2);
-}
-
-.task-action-btn.task-share:hover {
-    background: rgba(100, 116, 139, 0.2);
-}
-
-/* Share Button - Active (Task is Shared) */
-.task-action-btn.task-share.task-shared-active {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--color-primary);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-.task-action-btn.task-share.task-shared-active:hover {
-    background: rgba(16, 185, 129, 0.2);
 }
 
 .subtasks-badge,

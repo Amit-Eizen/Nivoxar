@@ -1,5 +1,6 @@
 // All task filtering logic in one place
 import { isTaskOverdue } from '../utils/TaskUtils.js';
+import Logger from '../utils/Logger.js';
 
 /**
  * Filter tasks by status (all/completed/pending)
@@ -29,21 +30,40 @@ export function filterByStatus(tasks, status) {
  */
 export function filterByCategory(tasks, categoryId) {
     if (!categoryId || categoryId === 'all') return tasks;
-    
+
     // Special case: urgent filter
     if (categoryId === 'urgent') {
         return tasks.filter(task => task.priority >= 3 || isTaskOverdue(task));
     }
-    
+
     // Special case: recurring filter
     if (categoryId === 'recurring') {
         return tasks.filter(task => task.recurring?.enabled);
     }
-    
-    // Regular category filter (case-insensitive)
-    return tasks.filter(task => 
-        task.category?.toLowerCase() === categoryId.toLowerCase()
-    );
+
+    // Regular category filter - handle object, number, or string
+    return tasks.filter(task => {
+        if (!task.category && !task.categoryId) return false;
+
+        // Extract category ID from different formats
+        let taskCategoryId;
+        if (typeof task.category === 'object' && task.category !== null) {
+            // Category is an object: { id, name, color }
+            taskCategoryId = task.category.id;
+        } else if (task.categoryId) {
+            // Task has categoryId field
+            taskCategoryId = task.categoryId;
+        } else {
+            // Category is a primitive (string or number)
+            taskCategoryId = task.category;
+        }
+
+        // Convert both to strings for comparison
+        const taskIdStr = String(taskCategoryId);
+        const filterIdStr = String(categoryId);
+
+        return taskIdStr === filterIdStr;
+    });
 }
 
 /**
@@ -232,7 +252,7 @@ export function validateFilters(filters) {
     
     // Validate status
     if (filters.status && !['all', 'completed', 'pending'].includes(filters.status)) {
-        console.warn('Invalid status filter:', filters.status);
+        Logger.warn('Invalid status filter:', filters.status);
         return false;
     }
     
@@ -240,7 +260,7 @@ export function validateFilters(filters) {
     if (filters.priority) {
         const priority = parseInt(filters.priority);
         if (isNaN(priority) || priority < 1 || priority > 4) {
-            console.warn('Invalid priority filter:', filters.priority);
+            Logger.warn('Invalid priority filter:', filters.priority);
             return false;
         }
     }

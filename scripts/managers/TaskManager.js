@@ -1,3 +1,4 @@
+import Logger from '../../utils/Logger.js';
 import { dashboardState, updateDashboard } from '../../views/DashboardPage.js';
 import {
     createTaskElement,
@@ -14,6 +15,7 @@ import {
     updateTask as updateTaskAPI,
     deleteTask as deleteTaskAPI
 } from '../../services/TasksService.js';
+import { getMySharedTasks } from '../../services/SharedTasksService.js';
 
 // ===== CONFIGURATION =====
 const CONFIG = {
@@ -22,18 +24,71 @@ const CONFIG = {
 
 // Initialize Task Manager
 export async function initTaskManager() {
-    console.log('✅ Task Manager initialized');
+    Logger.success(' Task Manager initialized');
 
     if (CONFIG.useAPI) {
         try {
-            const tasks = await getTasks();
-            dashboardState.tasks = tasks;
-            dashboardState.filteredTasks = [...tasks];
+            // Load personal tasks
+            const personalTasks = await getTasks();
+
+            // Load shared tasks
+            const sharedTasksData = await getMySharedTasks();
+
+            // Extract and normalize shared tasks
+            const sharedTasks = sharedTasksData.map(st => {
+                const task = st.task;
+
+                // Add metadata for shared tasks
+                task.isSharedTask = true;
+                task.sharedTaskId = st.id;
+                task.taskOwnerId = st.ownerId;
+                task.taskOwnerUsername = st.ownerUsername;
+                task.isOwner = st.isOwner;
+                task.permissions = st.permissions;
+
+                return task;
+            });
+
+            // Get IDs of shared tasks to filter out duplicates from personal tasks
+            const sharedTaskIds = new Set(sharedTasks.map(st => st.id));
+
+            // Filter out personal tasks that are already in shared tasks
+            const uniquePersonalTasks = personalTasks.filter(task => !sharedTaskIds.has(task.id));
+
+            // Merge unique personal tasks and shared tasks
+            const allTasks = [...uniquePersonalTasks, ...sharedTasks];
+
+            // Normalize all tasks: convert PascalCase to camelCase and handle subtasks
+            allTasks.forEach(task => {
+                // Normalize recurring fields from PascalCase (IsRecurring) to camelCase (isRecurring)
+                if (task.isRecurring || task.IsRecurring) {
+                    task.recurring = {
+                        enabled: task.isRecurring || task.IsRecurring || false,
+                        frequency: task.recurringFrequency || task.RecurringFrequency || null,
+                        endDate: task.recurringEndDate || task.RecurringEndDate || null
+                    };
+                } else {
+                    task.recurring = { enabled: false };
+                }
+
+                // Normalize subtasks: map 'title' to 'text' for consistency
+                if (task.subTasks && Array.isArray(task.subTasks)) {
+                    task.subTasks = task.subTasks.map(st => ({
+                        id: st.id,
+                        text: st.title || st.text,
+                        title: st.title || st.text,  // Keep both for compatibility
+                        completed: st.completed || false
+                    }));
+                }
+            });
+
+            dashboardState.tasks = allTasks;
+            dashboardState.filteredTasks = [...allTasks];
             // Sync to localStorage for offline fallback
-            saveTasksToLocalStorage(tasks);
-            console.log('✅ Tasks loaded from API:', tasks.length);
+            saveTasksToLocalStorage(allTasks);
+            Logger.success(' Tasks loaded from API:', allTasks.length, '(Personal:', personalTasks.length, '+ Shared:', sharedTasks.length, ')');
         } catch (error) {
-            console.error('❌ Failed to load tasks from API, using localStorage fallback:', error);
+            Logger.error('❌ Failed to load tasks from API, using localStorage fallback:', error);
             const tasks = loadTasksFromLocalStorage();
             dashboardState.tasks = tasks;
             dashboardState.filteredTasks = [...tasks];
@@ -61,6 +116,17 @@ export async function createTask(taskData) {
                 recurring: taskData.recurring || { enabled: false }
             });
 
+            // Normalize recurring fields from API response
+            if (newTask.isRecurring || newTask.IsRecurring) {
+                newTask.recurring = {
+                    enabled: newTask.isRecurring || newTask.IsRecurring || false,
+                    frequency: newTask.recurringFrequency || newTask.RecurringFrequency || null,
+                    endDate: newTask.recurringEndDate || newTask.RecurringEndDate || null
+                };
+            } else {
+                newTask.recurring = { enabled: false };
+            }
+
             // Update local state with API response
             dashboardState.tasks.unshift(newTask);
             dashboardState.filteredTasks = [...dashboardState.tasks];
@@ -71,10 +137,10 @@ export async function createTask(taskData) {
                 await incrementTaskCount(newTask.category);
             }
 
-            console.log('✅ Task created via API:', newTask);
+            Logger.success(' Task created via API:', newTask);
             return newTask;
         } catch (error) {
-            console.error('❌ Failed to create task via API, using localStorage fallback:', error);
+            Logger.error('❌ Failed to create task via API, using localStorage fallback:', error);
             // Fallback to local-only if API fails
             const newTask = {
                 id: Date.now(),
@@ -98,7 +164,7 @@ export async function createTask(taskData) {
                 await incrementTaskCount(newTask.category);
             }
 
-            console.log('✅ Task created locally:', newTask);
+            Logger.success(' Task created locally:', newTask);
             return newTask;
         }
     }
@@ -124,6 +190,27 @@ export async function updateTask(taskId, updates) {
             // Call API to update task
             const updatedTask = await updateTaskAPI(taskId, apiUpdates);
 
+            // Normalize recurring fields from API response
+            if (updatedTask.isRecurring || updatedTask.IsRecurring) {
+                updatedTask.recurring = {
+                    enabled: updatedTask.isRecurring || updatedTask.IsRecurring || false,
+                    frequency: updatedTask.recurringFrequency || updatedTask.RecurringFrequency || null,
+                    endDate: updatedTask.recurringEndDate || updatedTask.RecurringEndDate || null
+                };
+            } else {
+                updatedTask.recurring = { enabled: false };
+            }
+
+            // Normalize subtasks
+            if (updatedTask.subTasks && Array.isArray(updatedTask.subTasks)) {
+                updatedTask.subTasks = updatedTask.subTasks.map(st => ({
+                    id: st.id,
+                    text: st.title || st.text,
+                    title: st.title || st.text,
+                    completed: st.completed || false
+                }));
+            }
+
             // Update local state with API response
             dashboardState.tasks[taskIndex] = {
                 ...oldTask,
@@ -133,15 +220,23 @@ export async function updateTask(taskId, updates) {
             dashboardState.filteredTasks = [...dashboardState.tasks];
             saveTasksToLocalStorage(dashboardState.tasks);
 
-            // Update category task counts if category changed
+            // Update category task counts if category changed (BEFORE re-rendering)
+            // This clears the cache, so we do it first
             if (oldCategory !== newCategory) {
                 if (oldCategory) await decrementTaskCount(oldCategory);
                 if (newCategory) await incrementTaskCount(newCategory);
             }
 
-            console.log('✅ Task updated via API:', taskId);
+            // Update the visual element in real-time (without full page refresh)
+            const taskElement = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
+            if (taskElement) {
+                const updatedElement = createTaskElement(dashboardState.tasks[taskIndex]);
+                taskElement.replaceWith(updatedElement);
+            }
+
+            Logger.success(' Task updated via API:', taskId);
         } catch (error) {
-            console.error('❌ Failed to update task via API, using localStorage fallback:', error);
+            Logger.error('❌ Failed to update task via API, using localStorage fallback:', error);
             // Fallback to local-only if API fails
             dashboardState.tasks[taskIndex] = {
                 ...oldTask,
@@ -152,12 +247,21 @@ export async function updateTask(taskId, updates) {
             dashboardState.filteredTasks = [...dashboardState.tasks];
             saveTasksToLocalStorage(dashboardState.tasks);
 
+            // Update category task counts if category changed (BEFORE re-rendering)
+            // This clears and reloads the cache, so we do it first
             if (oldCategory !== newCategory) {
                 if (oldCategory) await decrementTaskCount(oldCategory);
                 if (newCategory) await incrementTaskCount(newCategory);
             }
 
-            console.log('✅ Task updated locally:', taskId);
+            // Update the visual element in real-time (without full page refresh)
+            const taskElement = document.querySelector(`.task-item[data-task-id="${taskId}"]`);
+            if (taskElement) {
+                const updatedElement = createTaskElement(dashboardState.tasks[taskIndex]);
+                taskElement.replaceWith(updatedElement);
+            }
+
+            Logger.success(' Task updated locally:', taskId);
         }
     }
 }
@@ -185,9 +289,9 @@ export async function deleteTask(taskId) {
                 await decrementTaskCount(categoryId);
             }
 
-            console.log('✅ Task deleted via API:', taskId);
+            Logger.success(' Task deleted via API:', taskId);
         } catch (error) {
-            console.error('❌ Failed to delete task via API, using localStorage fallback:', error);
+            Logger.error('❌ Failed to delete task via API, using localStorage fallback:', error);
             // Fallback to local-only if API fails
             dashboardState.tasks.splice(taskIndex, 1);
             dashboardState.filteredTasks = [...dashboardState.tasks];
@@ -197,7 +301,7 @@ export async function deleteTask(taskId) {
                 await decrementTaskCount(categoryId);
             }
 
-            console.log('✅ Task deleted locally:', taskId);
+            Logger.success(' Task deleted locally:', taskId);
         }
     }
 }
@@ -222,15 +326,15 @@ export async function toggleTaskCompletion(taskId) {
             task.completedAt = updatedTask.completedAt;
 
             saveTasksToLocalStorage(dashboardState.tasks);
-            console.log('✅ Task toggled via API:', taskId, task.completed);
+            Logger.success(' Task toggled via API:', taskId, task.completed);
         } catch (error) {
-            console.error('❌ Failed to toggle task via API, using localStorage fallback:', error);
+            Logger.error('❌ Failed to toggle task via API, using localStorage fallback:', error);
             // Fallback to local-only if API fails
             task.completed = newCompletedState;
             task.completedAt = newCompletedState ? new Date().toISOString() : null;
 
             saveTasksToLocalStorage(dashboardState.tasks);
-            console.log('✅ Task toggled locally:', taskId, task.completed);
+            Logger.success(' Task toggled locally:', taskId, task.completed);
         }
     }
 }
