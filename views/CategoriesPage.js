@@ -1,7 +1,10 @@
 // ===== IMPORTS =====
 import { initNavbar } from '../scripts/components/Navbar.js';
+import Logger from '../utils/Logger.js';
 import { getCategories, createCategory, updateCategory, deleteCategory,
     renderCategories, renderColorOptions } from '../scripts/managers/CategoriesManager.js';
+import { clearCategoriesCache } from '../services/CategoryService.js';
+import { showInfoPopup } from '../scripts/managers/EventHandlers.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 
 // ===== STATE =====
@@ -15,7 +18,7 @@ let elements = {};
 
 // ===== INITIALIZATION =====
 function initializePage() {
-    console.log('🚀 Initializing Categories Page...');
+    Logger.debug('🚀 Initializing Categories Page...');
 
     // Check authentication
     if (!requireAuth()) return;
@@ -37,7 +40,7 @@ function initializePage() {
     setTimeout(async () => {
         await loadAndRenderCategories();
         hideLoading();
-        console.log('✅ Categories Page initialized!');
+        Logger.success(' Categories Page initialized!');
     }, 300);
 }
 
@@ -162,32 +165,34 @@ function openCreateModal() {
 }
 
 // ===== OPEN EDIT MODAL =====
-function openEditModal(categoryId) {
-    const categories = getCategories();
+async function openEditModal(categoryId) {
+    // Clear cache to get fresh data
+    clearCategoriesCache();
+    const categories = await getCategories();
     const category = categories.find(cat => cat.id === categoryId);
-    
+
     if (!category) {
         showError('Category not found');
         return;
     }
-    
+
     state.editingCategory = category;
     state.selectedColor = category.color;
-    
+
     // Fill form
     elements.categoryNameInput.value = category.name;
-    
+
     // Update modal UI
     elements.modalTitle.textContent = 'Edit Category';
     elements.submitBtnText.textContent = 'Update Category';
     elements.submitCategoryBtn.querySelector('i').className = 'fas fa-save';
-    
+
     // Update color preview
     updateColorPreview(state.selectedColor);
-    
+
     // Render color options
     renderColorOptions('colorOptions', state.selectedColor, handleColorSelect);
-    
+
     // Show modal
     elements.categoryModal.style.display = 'flex';
 }
@@ -232,23 +237,24 @@ async function handleFormSubmit(e) {
             name: name,
             color: state.selectedColor
         };
-        
+
         if (state.editingCategory) {
             // Update existing category
-            updateCategory(state.editingCategory.id, categoryData);
-            console.log('✅ Category updated');
+            await updateCategory(state.editingCategory.id, categoryData);
+            Logger.success(' Category updated');
         } else {
             // Create new category
-            createCategory(categoryData);
-            console.log('✅ Category created');
+            await createCategory(categoryData);
+            Logger.success(' Category created');
         }
-        
-        // Reload and close modal
-        loadAndRenderCategories();
+
+        // Clear cache and reload
+        clearCategoriesCache();
+        await loadAndRenderCategories();
         closeModal();
-        
+
     } catch (error) {
-        console.error('Error saving category:', error);
+        Logger.error('Error saving category:', error);
         showError('Failed to save category. Please try again.');
     }
 }
@@ -257,19 +263,24 @@ async function handleFormSubmit(e) {
 function handleCategoryAction(e) {
     const button = e.target.closest('button[data-action]');
     if (!button) return;
-    
+
     const action = button.dataset.action;
-    const categoryId = button.dataset.id;
-    
+    let categoryId = button.dataset.id;
+
+    // Convert to number if it's a numeric string, otherwise keep as string
+    if (categoryId && !isNaN(categoryId)) {
+        categoryId = parseInt(categoryId);
+    }
+
     switch (action) {
         case 'edit':
             openEditModal(categoryId);
             break;
-            
+
         case 'delete':
             handleDeleteCategory(categoryId);
             break;
-            
+
         case 'view':
             handleViewTasks(categoryId);
             break;
@@ -277,32 +288,49 @@ function handleCategoryAction(e) {
 }
 
 // ===== HANDLE DELETE CATEGORY =====
-function handleDeleteCategory(categoryId) {
-    const categories = getCategories();
+async function handleDeleteCategory(categoryId) {
+    // Clear cache to get fresh data
+    clearCategoriesCache();
+    const categories = await getCategories();
     const category = categories.find(cat => cat.id === categoryId);
-    
+
     if (!category) {
         showError('Category not found');
         return;
     }
-    
-    const confirmed = confirm(`Are you sure you want to delete "${category.name}"? This action cannot be undone.`);
-    
-    if (!confirmed) return;
-    
-    try {
-        deleteCategory(categoryId);
-        loadAndRenderCategories();
-        console.log('✅ Category deleted');
-    } catch (error) {
-        console.error('Error deleting category:', error);
-        showError('Failed to delete category. Please try again.');
-    }
+
+    // Show custom confirmation popup
+    showInfoPopup(
+        'Delete Category',
+        `Are you sure you want to delete "${category.name}"? This action cannot be undone.`,
+        [
+            {
+                text: 'Cancel',
+                primary: false,
+                action: () => {}
+            },
+            {
+                text: 'Delete',
+                primary: true,
+                action: async () => {
+                    try {
+                        await deleteCategory(categoryId);
+                        clearCategoriesCache();
+                        await loadAndRenderCategories();
+                        Logger.success(' Category deleted');
+                    } catch (error) {
+                        Logger.error('Error deleting category:', error);
+                        showError('Failed to delete category. Please try again.');
+                    }
+                }
+            }
+        ]
+    );
 }
 
 // ===== HANDLE VIEW TASKS =====
 function handleViewTasks(categoryId) {
-    console.log('View tasks for category:', categoryId);
+    Logger.debug('View tasks for category:', categoryId);
     // Navigate to dashboard with category filter
     if (window.__SPA_MODE__) {
         // In SPA mode, use router navigation
@@ -325,7 +353,7 @@ if (!window.__SPA_MODE__) {
  * Load Categories page for SPA
  */
 export async function loadCategoriesPage() {
-    console.log('📄 Loading Categories Page...');
+    Logger.debug('📄 Loading Categories Page...');
 
     // Load CSS
     loadPageCSS();
@@ -333,7 +361,7 @@ export async function loadCategoriesPage() {
     // Get app container
     const app = document.getElementById('app');
     if (!app) {
-        console.error('App container not found');
+        Logger.error('App container not found');
         return;
     }
 

@@ -1,5 +1,6 @@
 // AuthMiddleware.js - Centralized authentication middleware
 
+import Logger from '../utils/Logger.js';
 import { getCurrentUser } from '../services/AuthService.js';
 
 /**
@@ -10,11 +11,11 @@ import { getCurrentUser } from '../services/AuthService.js';
 export function requireAuth() {
     const user = getCurrentUser();
     if (!user) {
-        console.log('⚠️ User not authenticated, redirecting to login');
+        Logger.warn(' User not authenticated, redirecting to login');
         window.location.href = './LoginPage.html';
         return null;
     }
-    console.log('✅ User authenticated:', user.username);
+    Logger.success(' User authenticated:', user.username);
     return user;
 }
 

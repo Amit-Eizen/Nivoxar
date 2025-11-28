@@ -1,9 +1,10 @@
+import Logger from '../../utils/Logger.js';
 import { dashboardState, updateDashboard } from '../../views/DashboardPage.js';
 import { createTask, updateTask, deleteTask, toggleTaskCompletion, getTaskById, changePage } from './TaskManager.js';
 import { addSubTask, deleteSubTask, toggleSubTask, editSubTask, renderSubTasks, addTempSubTask, deleteTempSubTask, toggleTempSubTask, editTempSubTask, renderTempSubTasks, clearTempSubTasks } from './SubTasksManager.js';
 import { openTaskPopup, closeTaskPopup, openSubTasksPopup, closeSubTasksPopup, openSubTasksSidePanel, closeSubTasksSidePanel } from './PopupFactory.js';
 import { refreshCategorySelect } from './CategoriesManager.js';
-import { shareTask, getSharedTaskByTaskId, isTaskShared } from '../../services/SharedTasksService.js';
+import { shareTask, isTaskShared } from '../../services/SharedTasksService.js';
 import { getAllFriends } from '../../services/FriendsService.js';
 
 // Setup all event listeners
@@ -144,9 +145,21 @@ async function handleFormSubmit(e) {
         priority: parseInt(document.getElementById('taskPriority').value),
         dueDate: document.getElementById('taskDueDate').value,
         dueTime: document.getElementById('taskDueTime').value,
-        subTasks: hasSubTasksChecked ? [...dashboardState.tempSubTasks] : [],
         recurring: null
     };
+
+    // Include subTasks based on mode:
+    if (!isEdit) {
+        // CREATE mode: include all tempSubTasks
+        taskData.subTasks = hasSubTasksChecked ? [...dashboardState.tempSubTasks] : [];
+    } else {
+        // EDIT mode: include only NEW subtasks (ones with timestamp ID > 1000000000000)
+        // Existing subtasks from API have smaller integer IDs
+        const newSubTasks = dashboardState.tempSubTasks.filter(st => st.id > 1000000000000);
+        if (newSubTasks.length > 0) {
+            taskData.subTasks = newSubTasks;
+        }
+    }
 
     const recurringCheckbox = document.getElementById('taskRecurring');
     if (recurringCheckbox?.checked) {
@@ -301,14 +314,16 @@ async function handleClick(e) {
                             currentInput.focus();
 
                             const updatedTask = getTaskById(taskId);
-                            if (updatedTask && container) {
-                                renderSubTasks(updatedTask, container);
+                            // Get fresh container reference
+                            const freshContainer = document.getElementById('subTasksList');
+                            if (updatedTask && freshContainer) {
+                                renderSubTasks(updatedTask, freshContainer);
                                 updateSubTasksPopupInfo(updatedTask);
                             }
 
                             updateDashboard();
                         } catch (error) {
-                            console.error('Failed to add subtask:', error);
+                            Logger.error('Failed to add subtask:', error);
                             alert('Failed to add subtask. Please try again.');
                         }
                     });
@@ -328,14 +343,16 @@ async function handleClick(e) {
                                 e.target.focus();
 
                                 const updatedTask = getTaskById(taskId);
-                                if (updatedTask && container) {
-                                    renderSubTasks(updatedTask, container);
+                                // Get fresh container reference
+                                const freshContainer = document.getElementById('subTasksList');
+                                if (updatedTask && freshContainer) {
+                                    renderSubTasks(updatedTask, freshContainer);
                                     updateSubTasksPopupInfo(updatedTask);
                                 }
 
                                 updateDashboard();
                             } catch (error) {
-                                console.error('Failed to add subtask:', error);
+                                Logger.error('Failed to add subtask:', error);
                                 alert('Failed to add subtask. Please try again.');
                             }
                         }
@@ -427,7 +444,7 @@ async function handleClick(e) {
                         if (task && container) renderSubTasks(task, container);
                         updateDashboard();
                     } catch (error) {
-                        console.error('Failed to edit subtask:', error);
+                        Logger.error('Failed to edit subtask:', error);
                         alert('Failed to edit subtask. Please try again.');
                     }
                 } else {
@@ -488,7 +505,7 @@ async function handleClick(e) {
                 }
                 updateDashboard();
             } catch (error) {
-                console.error('Failed to delete subtask:', error);
+                Logger.error('Failed to delete subtask:', error);
                 alert('Failed to delete subtask. Please try again.');
             }
         } else {
@@ -513,7 +530,7 @@ async function handleChange(e) {
             await toggleTaskCompletion(taskId);
             updateDashboard();
         } catch (error) {
-            console.error('Failed to toggle task completion:', error);
+            Logger.error('Failed to toggle task completion:', error);
             alert('Failed to toggle task completion. Please try again.');
         }
         return;
@@ -576,7 +593,7 @@ async function handleChange(e) {
                     }
                 }
             } catch (error) {
-                console.error('Failed to toggle subtask:', error);
+                Logger.error('Failed to toggle subtask:', error);
                 alert('Failed to toggle subtask. Please try again.');
             }
         } else {
@@ -659,7 +676,7 @@ function handleSubtaskEdit(e, taskId, container) {
                 }
                 updateDashboard();
             } catch (error) {
-                console.error('Failed to edit subtask:', error);
+                Logger.error('Failed to edit subtask:', error);
                 alert('Failed to edit subtask. Please try again.');
             }
         } else {
@@ -710,7 +727,7 @@ async function handleSubtaskDelete(e, taskId, container) {
             updateSubTasksPopupInfo(task);
         }
     } catch (error) {
-        console.error('Failed to delete subtask:', error);
+        Logger.error('Failed to delete subtask:', error);
         alert('Failed to delete subtask. Please try again.');
     }
     updateDashboard();
@@ -729,9 +746,10 @@ export function showError(message) {
 }
 
 // ===== SHARE TASK POPUP =====
-function openShareTaskPopup(task) {
+async function openShareTaskPopup(task) {
     // Check if already shared
-    if (isTaskShared(task.id)) {
+    const taskIsShared = await isTaskShared(task.id);
+    if (taskIsShared) {
         showInfoPopup(
             'Task Already Shared',
             'This task is already shared. Manage participants in the Shared Tasks page.',
@@ -739,7 +757,10 @@ function openShareTaskPopup(task) {
                 {
                     text: 'Go to Shared Tasks',
                     primary: true,
-                    action: () => window.location.href = '/views/SharedTasksPage.html'
+                    action: async () => {
+                        const { router } = await import('../core/Router.js');
+                        router.navigate('/shared-tasks');
+                    }
                 },
                 {
                     text: 'OK',
@@ -752,7 +773,7 @@ function openShareTaskPopup(task) {
     }
 
     // Get friends
-    const friends = getAllFriends();
+    const friends = await getAllFriends();
     if (friends.length === 0) {
         showInfoPopup(
             'No Friends Yet',
@@ -846,10 +867,10 @@ function closeShareTaskPopup() {
     }
 }
 
-function handleShareTask(task) {
+async function handleShareTask(task) {
     // Get selected friends
     const checkboxes = document.querySelectorAll('#shareTaskPopup input[type="checkbox"]:checked');
-    const selectedUserIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    const selectedUserIds = Array.from(checkboxes).map(cb => cb.value); // User IDs are strings (GUIDs), not integers
 
     if (selectedUserIds.length === 0) {
         showInfoPopup(
@@ -861,7 +882,19 @@ function handleShareTask(task) {
     }
 
     try {
-        shareTask(task.id, task.title, selectedUserIds);
+        // Show loading state
+        const confirmBtn = document.getElementById('confirmShareBtn');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sharing...';
+        }
+
+        await shareTask(task.id, task.title, selectedUserIds);
+
+        // Mark task as shared in the state (will be reflected in next dashboard update)
+        task.isShared = true;
+        task.sharedTask = true;
+
         closeShareTaskPopup();
         showInfoPopup(
             'Task Shared Successfully',
@@ -869,7 +902,15 @@ function handleShareTask(task) {
             [{ text: 'OK', primary: true, action: () => updateDashboard() }]
         );
     } catch (error) {
-        console.error('❌ Error sharing task:', error);
+        Logger.error('❌ Error sharing task:', error);
+
+        // Re-enable button on error
+        const confirmBtn = document.getElementById('confirmShareBtn');
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="fas fa-share-nodes"></i> Share Task';
+        }
+
         showInfoPopup(
             'Error Sharing Task',
             'Failed to share task: ' + error.message,
@@ -879,7 +920,7 @@ function handleShareTask(task) {
 }
 
 // ===== INFO POPUP =====
-function showInfoPopup(title, message, buttons) {
+export function showInfoPopup(title, message, buttons) {
     // Remove existing info popup
     const existingPopup = document.getElementById('infoPopup');
     if (existingPopup) {

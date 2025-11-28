@@ -1,3 +1,5 @@
+import Logger from '../../utils/Logger.js';
+
 /**
  * Router - History-based SPA Router
  * Handles client-side routing without page reloads
@@ -7,11 +9,12 @@ class Router {
     constructor() {
         this.routes = new Map();
         this.currentRoute = null;
+        this.currentPageCleanup = null; // Store cleanup function for current page
         this.beforeNavigateCallbacks = [];
         this.afterNavigateCallbacks = [];
         this.isNavigating = false;
 
-        console.log('🚀 Router: Initializing...');
+        Logger.debug('🚀 Router: Initializing...');
 
         // Get global loading element
         this.globalLoading = document.getElementById('globalLoading');
@@ -23,7 +26,7 @@ class Router {
         // Intercept all link clicks - use capture phase to ensure we catch it first
         document.addEventListener('click', (e) => this.handleLinkClick(e), true);
 
-        console.log('✅ Router: Event listeners attached');
+        Logger.success(' Router: Event listeners attached');
     }
 
     /**
@@ -43,7 +46,7 @@ class Router {
     async navigate(path, replace = false) {
         // Prevent multiple simultaneous navigations
         if (this.isNavigating) {
-            console.log('⚠️ Router: Navigation already in progress');
+            Logger.warn(' Router: Navigation already in progress');
             return;
         }
 
@@ -98,18 +101,21 @@ class Router {
         // Cleanup before rendering new route
         this.cleanup();
 
-        const handler = this.routes.get(path);
+        // Extract path without query parameters
+        const pathWithoutQuery = path.split('?')[0];
+
+        const handler = this.routes.get(pathWithoutQuery);
 
         if (handler) {
             try {
                 await handler();
             } catch (error) {
-                console.error(`Error rendering route ${path}:`, error);
+                Logger.error(`Error rendering route ${path}:`, error);
                 this.handleError(error);
             }
         } else {
             // Route not found - redirect to dashboard
-            console.warn(`Route ${path} not found, redirecting to /dashboard`);
+            Logger.warn(`Route ${pathWithoutQuery} not found, redirecting to /dashboard`);
             this.navigate('/dashboard', true);
         }
     }
@@ -119,6 +125,17 @@ class Router {
      * Removes old modals, popups, and overlays
      */
     cleanup() {
+        // Call current page cleanup function if it exists
+        if (typeof this.currentPageCleanup === 'function') {
+            Logger.debug('🧹 Router: Calling page cleanup function');
+            try {
+                this.currentPageCleanup();
+            } catch (error) {
+                Logger.error('❌ Router: Error during page cleanup:', error);
+            }
+            this.currentPageCleanup = null;
+        }
+
         // Remove all modals/popups/overlays that might be open
         const elementsToRemove = [
             '.modal-overlay',
@@ -143,6 +160,14 @@ class Router {
     }
 
     /**
+     * Register cleanup function for current page
+     * @param {Function} cleanupFn - Cleanup function to call before navigating away
+     */
+    registerPageCleanup(cleanupFn) {
+        this.currentPageCleanup = cleanupFn;
+    }
+
+    /**
      * Handle browser back/forward button
      */
     async handlePopState() {
@@ -161,15 +186,15 @@ class Router {
 
         const href = link.getAttribute('href');
 
-        console.log('🔗 Router: Link clicked:', href);
+        Logger.debug('🔗 Router: Link clicked:', href);
 
         // Only intercept internal links
         if (!href || href.startsWith('http') || href.startsWith('//') || href.startsWith('#')) {
-            console.log('⚠️ Router: External link, not intercepting');
+            Logger.warn(' Router: External link, not intercepting');
             return;
         }
 
-        console.log('✅ Router: Intercepting navigation to:', href);
+        Logger.success(' Router: Intercepting navigation to:', href);
 
         // Prevent default navigation
         e.preventDefault();

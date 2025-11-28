@@ -1,3 +1,4 @@
+import Logger from '../../utils/Logger.js';
 // SubTasksManager.js - Unified subtasks manager for all pages
 import { saveTasksToLocalStorage } from '../../utils/TaskUtils.js';
 import {
@@ -8,7 +9,7 @@ import {
 } from '../../services/TasksService.js';
 
 export function initSubTasksManager() {
-    console.log('✅ SubTasks Manager initialized');
+    Logger.success(' SubTasks Manager initialized');
 }
 
 // ========== EXISTING TASK SUBTASKS (API-based) ==========
@@ -35,10 +36,10 @@ export async function addSubTask(tasksState, taskId, text) {
         });
 
         saveTasksToLocalStorage(tasksState.tasks);
-        console.log('✅ SubTask added via API:', newSubTask);
+        Logger.success(' SubTask added via API:', newSubTask);
         return newSubTask;
     } catch (error) {
-        console.error('❌ Failed to add subtask:', error);
+        Logger.error('❌ Failed to add subtask:', error);
         // Fallback to local-only if API fails
         if (!task.subTasks) task.subTasks = [];
         task.subTasks.push({
@@ -68,10 +69,10 @@ export async function editSubTask(tasksState, taskId, subTaskId, newText) {
         // Update local state
         subTask.text = updatedSubTask.title;
         saveTasksToLocalStorage(tasksState.tasks);
-        console.log('✅ SubTask updated via API:', updatedSubTask);
+        Logger.success(' SubTask updated via API:', updatedSubTask);
         return updatedSubTask;
     } catch (error) {
-        console.error('❌ Failed to update subtask:', error);
+        Logger.error('❌ Failed to update subtask:', error);
         // Fallback to local-only
         subTask.text = newText;
         saveTasksToLocalStorage(tasksState.tasks);
@@ -94,11 +95,11 @@ export async function toggleSubTask(tasksState, taskId, subTaskId) {
 
         // Update local state
         subTask.completed = updatedSubTask.completed;
-        console.log('✅ SubTask toggled via API:', subTaskId, subTask.completed);
+        Logger.success(' SubTask toggled via API:', subTaskId, subTask.completed);
         saveTasksToLocalStorage(tasksState.tasks);
         return updatedSubTask;
     } catch (error) {
-        console.error('❌ Failed to toggle subtask:', error);
+        Logger.error('❌ Failed to toggle subtask:', error);
         // Fallback to local-only
         subTask.completed = newCompletedStatus;
         saveTasksToLocalStorage(tasksState.tasks);
@@ -117,9 +118,9 @@ export async function deleteSubTask(tasksState, taskId, subTaskId) {
         // Update local state
         task.subTasks = task.subTasks.filter(st => st.id !== subTaskId);
         saveTasksToLocalStorage(tasksState.tasks);
-        console.log('✅ SubTask deleted via API:', subTaskId);
+        Logger.success(' SubTask deleted via API:', subTaskId);
     } catch (error) {
-        console.error('❌ Failed to delete subtask:', error);
+        Logger.error('❌ Failed to delete subtask:', error);
         // Fallback to local-only
         task.subTasks = task.subTasks.filter(st => st.id !== subTaskId);
         saveTasksToLocalStorage(tasksState.tasks);
@@ -141,7 +142,7 @@ export function renderSubTasks(task, container) {
         container.appendChild(subTaskEl);
     });
 
-    console.log('🎨 Rendered subtasks for task:', task.id, task.subTasks.map(st => ({id: st.id, completed: st.completed})));
+    Logger.debug('🎨 Rendered subtasks for task:', task.id, task.subTasks.map(st => ({id: st.id, completed: st.completed})));
 }
 
 // Escape HTML to prevent XSS
@@ -156,13 +157,16 @@ function createSubTaskElement(subTask, taskId) {
     div.className = `subtask-item ${subTask.completed ? 'completed' : ''}`;
     div.dataset.subtaskId = subTask.id;
     div.dataset.taskId = taskId;
-    
+
+    // Use title or text (API uses 'title', temp subtasks use 'text')
+    const subTaskText = subTask.title || subTask.text || '';
+
     div.innerHTML = `
         <label class="subtask-checkbox">
             <input type="checkbox" ${subTask.completed ? 'checked' : ''}>
             <span class="checkmark"></span>
         </label>
-        <span class="subtask-text" data-original="${escapeHtml(subTask.text)}">${escapeHtml(subTask.text)}</span>
+        <span class="subtask-text" data-original="${escapeHtml(subTaskText)}">${escapeHtml(subTaskText)}</span>
         <div class="subtask-actions">
             <button class="subtask-edit" title="Edit">
                 <i class="fas fa-edit"></i>
@@ -172,7 +176,7 @@ function createSubTaskElement(subTask, taskId) {
             </button>
         </div>
     `;
-    
+
     return div;
 }
 

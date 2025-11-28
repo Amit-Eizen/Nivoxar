@@ -1,27 +1,12 @@
 // ProfilePage.js - Profile Management
-import {
-    updateProfilePicture,
-    updateUserName,
-    changePassword
-} from '../services/AuthService.js';
+import Logger from '../utils/Logger.js';
+import { updateProfilePicture, updateUserName, changePassword, checkNameAvailability, searchUsers } from '../services/AuthService.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
-import {
-    getAllFriends,
-    getFriendRequests,
-    sendFriendRequest,
-    acceptFriendRequest,
-    rejectFriendRequest,
-    removeFriend
-} from '../services/FriendsService.js';
+import { getAllFriends, getFriendRequests, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend, cancelFriendRequest } from '../services/FriendsService.js';
 import { escapeHtml } from '../utils/SecurityUtils.js';
 import { formatTimeAgo } from '../utils/DateUtils.js';
 import { getNotificationIcon } from '../utils/NotificationUtils.js';
-import {
-    getAllNotifications,
-    getUnreadCount,
-    markAllAsRead,
-    deleteNotification
-} from '../services/NotificationsService.js';
+import { getAllNotifications, getUnreadCount, markAllAsRead, deleteNotification } from '../services/NotificationsService.js';
 import { initNavbar } from '../scripts/components/Navbar.js';
 
 // ===== STATE =====
@@ -34,16 +19,31 @@ const profileState = {
 
 // ===== INITIALIZATION =====
 async function initializeProfilePage() {
-    console.log('🚀 Initializing Profile Page...');
+    Logger.debug('🚀 Initializing Profile Page...');
 
     // Check authentication
     const user = requireAuth();
     if (!user) return;
 
-    profileState.currentUser = user;
+    // Fetch fresh user data from API to ensure we have latest info
+    try {
+        const { getCurrentUserProfile } = await import('../services/AuthService.js');
+        const freshUser = await getCurrentUserProfile();
+        profileState.currentUser = freshUser;
 
-    // Only init navbar in MPA mode (SPA mode handles navbar globally)
-    if (!window.__SPA_MODE__) {
+        // Update localStorage with fresh data
+        const { STORAGE_KEYS } = await import('../utils/StorageKeys.js');
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(freshUser));
+    } catch (error) {
+        Logger.error('Failed to fetch fresh user data:', error);
+        profileState.currentUser = user; // Fallback to cached user
+    }
+
+    // Refresh navbar with updated user data
+    if (window.__SPA_MODE__) {
+        const { renderNavbar } = await import('../scripts/components/Navbar.js');
+        await renderNavbar();
+    } else {
         initNavbar();
     }
 
@@ -59,14 +59,14 @@ async function initializeProfilePage() {
     // Hide loading
     document.getElementById('loading').style.display = 'none';
 
-    console.log('✅ Profile Page initialized');
+    Logger.success(' Profile Page initialized');
 }
 
 // ===== LOAD USER INFO =====
 function loadUserInfo() {
     const user = profileState.currentUser;
 
-    document.getElementById('username').value = user.username || '';
+    document.getElementById('username').value = user.name || '';
     document.getElementById('email').value = user.email || '';
 
     // Format member since date
@@ -90,6 +90,10 @@ function loadUserInfo() {
 async function loadNotifications() {
     profileState.notifications = await getAllNotifications();
     const unreadCount = await getUnreadCount();
+
+    // DEBUG: Log notifications
+    console.log('📬 Loaded notifications:', profileState.notifications);
+    console.log('📬 Unread count:', unreadCount);
 
     // Update badge
     const badge = document.getElementById('notificationCount');
@@ -275,8 +279,9 @@ function setupEventListeners() {
     document.getElementById('cancelPasswordBtn').addEventListener('click', closePasswordModal);
     document.getElementById('changePasswordForm').addEventListener('submit', handlePasswordChange);
 
-    // Add friend
-    document.getElementById('addFriendForm').addEventListener('submit', handleAddFriend);
+    // Add friend - just prevent form submission (no longer needed)
+    document.getElementById('addFriendForm').addEventListener('submit', (e) => e.preventDefault());
+    document.getElementById('friendSearch').addEventListener('input', handleFriendSearchInput);
 
     // Friends search
     document.getElementById('friendsSearchInput').addEventListener('input', handleFriendsSearch);
@@ -286,6 +291,16 @@ function setupEventListeners() {
         if (await getUnreadCount() > 0) {
             await markAllAsRead();
             await loadNotifications();
+        }
+    });
+
+    // Close search dropdown when clicking outside
+    document.addEventListener('click', (event) => {
+        const searchInput = document.getElementById('friendSearch');
+        const resultsContainer = document.getElementById('friendSearchResults');
+
+        if (resultsContainer && !searchInput.contains(event.target) && !resultsContainer.contains(event.target)) {
+            hideSearchResults();
         }
     });
 }
@@ -321,9 +336,9 @@ function handleProfilePictureChange(event) {
             // Refresh navbar to show new picture
             initNavbar();
 
-            console.log('✅ Profile picture updated');
+            Logger.success(' Profile picture updated');
         } catch (error) {
-            console.error('❌ Error updating profile picture:', error);
+            Logger.error(' Error updating profile picture:', error);
             alert('Failed to update profile picture');
         }
     };
@@ -331,11 +346,16 @@ function handleProfilePictureChange(event) {
 }
 
 // ===== USERNAME EDIT =====
+let originalUsername = ''; // Store original value for cancel
+
 async function handleUsernameEdit() {
     const input = document.getElementById('username');
     const btn = document.getElementById('editUsernameBtn');
 
     if (input.hasAttribute('readonly')) {
+        // Store original value before editing
+        originalUsername = input.value;
+
         // Enable editing
         input.removeAttribute('readonly');
         input.focus();
@@ -344,15 +364,50 @@ async function handleUsernameEdit() {
         btn.style.background = 'rgba(34, 197, 94, 0.1)';
         btn.style.borderColor = 'rgba(34, 197, 94, 0.3)';
         btn.style.color = 'var(--color-success)';
+
+        // Add cancel button to button group
+        const buttonGroup = document.getElementById('usernameButtons');
+        const cancelBtn = document.createElement('button');
+        cancelBtn.id = 'cancelUsernameBtn';
+        cancelBtn.className = 'edit-btn';
+        cancelBtn.type = 'button';
+        cancelBtn.innerHTML = '<i class="fas fa-times"></i>';
+        cancelBtn.style.background = 'rgba(239, 68, 68, 0.1)';
+        cancelBtn.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+        cancelBtn.style.color = 'var(--color-danger)';
+        cancelBtn.onclick = cancelUsernameEdit;
+        buttonGroup.appendChild(cancelBtn);
     } else {
         // Save changes
         const newUsername = input.value.trim();
+        const errorDiv = document.getElementById('usernameError');
+
+        // Hide previous error
+        errorDiv.style.display = 'none';
+
         if (!newUsername) {
-            alert('Username cannot be empty');
+            errorDiv.textContent = 'Username cannot be empty';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // Check if name changed
+        if (newUsername === originalUsername) {
+            // No change, just exit edit mode
+            cancelUsernameEdit();
             return;
         }
 
         try {
+            // Check if name is available
+            const isAvailable = await checkNameAvailability(newUsername);
+            if (!isAvailable) {
+                errorDiv.textContent = 'This name is already taken. Please choose a different name.';
+                errorDiv.style.display = 'block';
+                input.select();
+                return;
+            }
+
             const updatedUser = await updateUserName(newUsername);
             profileState.currentUser = updatedUser;
 
@@ -362,15 +417,53 @@ async function handleUsernameEdit() {
             btn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
             btn.style.color = 'var(--color-primary)';
 
-            // Refresh navbar to show new username
-            initNavbar();
+            // Remove cancel button
+            const cancelBtn = document.getElementById('cancelUsernameBtn');
+            if (cancelBtn) cancelBtn.remove();
 
-            console.log('✅ Username updated');
+            // Hide error message
+            errorDiv.style.display = 'none';
+
+            // Refresh navbar to show new username
+            if (window.__SPA_MODE__) {
+                // In SPA mode, use renderNavbar to re-render
+                const { renderNavbar } = await import('../scripts/components/Navbar.js');
+                await renderNavbar();
+            } else {
+                // In MPA mode, use initNavbar
+                initNavbar();
+            }
+
+            Logger.success(' Username updated');
         } catch (error) {
-            console.error('❌ Error updating username:', error);
-            alert('Failed to update username');
+            Logger.error(' Error updating username:', error);
+            errorDiv.textContent = error.message || 'Failed to update username';
+            errorDiv.style.display = 'block';
         }
     }
+}
+
+function cancelUsernameEdit() {
+    const input = document.getElementById('username');
+    const btn = document.getElementById('editUsernameBtn');
+    const errorDiv = document.getElementById('usernameError');
+
+    // Restore original value
+    input.value = originalUsername;
+    input.setAttribute('readonly', true);
+
+    // Reset button
+    btn.innerHTML = '<i class="fas fa-edit"></i>';
+    btn.style.background = 'rgba(99, 102, 241, 0.1)';
+    btn.style.borderColor = 'rgba(99, 102, 241, 0.3)';
+    btn.style.color = 'var(--color-primary)';
+
+    // Remove cancel button
+    const cancelBtn = document.getElementById('cancelUsernameBtn');
+    if (cancelBtn) cancelBtn.remove();
+
+    // Hide error message
+    errorDiv.style.display = 'none';
 }
 
 // ===== PASSWORD CHANGE =====
@@ -407,33 +500,168 @@ async function handlePasswordChange(event) {
         await changePassword(currentPassword, newPassword);
         closePasswordModal();
         alert('Password changed successfully');
-        console.log('✅ Password changed');
+        Logger.success(' Password changed');
     } catch (error) {
-        console.error('❌ Error changing password:', error);
+        Logger.error(' Error changing password:', error);
         alert(error.message || 'Failed to change password');
     }
 }
 
 // ===== ADD FRIEND =====
-async function handleAddFriend(event) {
-    event.preventDefault();
+let searchTimeout = null;
 
-    const input = document.getElementById('friendSearch');
-    const usernameOrEmail = input.value.trim();
+async function handleFriendSearchInput(event) {
+    const query = event.target.value.trim();
 
-    if (!usernameOrEmail) {
-        alert('Please enter a username or email');
+    // Clear previous timeout
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+    }
+
+    // Hide results if query is too short
+    if (query.length < 2) {
+        hideSearchResults();
         return;
     }
 
+    // Debounce search - wait 300ms after user stops typing
+    searchTimeout = setTimeout(async () => {
+        try {
+            const users = await searchUsers(query);
+            console.log('Search results for "' + query + '":', users);
+            displaySearchResults(users);
+        } catch (error) {
+            Logger.error('Error searching users:', error);
+        }
+    }, 300);
+}
+
+function displaySearchResults(users) {
+    let resultsContainer = document.getElementById('friendSearchResults');
+
+    // Create results container if it doesn't exist
+    if (!resultsContainer) {
+        resultsContainer = document.createElement('div');
+        resultsContainer.id = 'friendSearchResults';
+        resultsContainer.className = 'search-results-dropdown';
+
+        const input = document.getElementById('friendSearch');
+        input.parentElement.style.position = 'relative';
+        input.parentElement.appendChild(resultsContainer);
+    }
+
+    if (users.length === 0) {
+        resultsContainer.innerHTML = '<div class="search-result-item no-results">No users found</div>';
+        resultsContainer.style.display = 'block';
+        return;
+    }
+
+    resultsContainer.innerHTML = users.map(user => {
+        // Check if there's already an outgoing request to this user
+        const existingRequest = profileState.friendRequests.outgoing.find(
+            req => req.friendId === user.id
+        );
+
+        // Check if already friends
+        const isFriend = profileState.friends.some(
+            friend => friend.friendId === user.id || friend.userId === user.id
+        );
+
+        let actionButton = '';
+        if (isFriend) {
+            actionButton = '<button class="user-action-btn friend-status" disabled><i class="fas fa-check"></i></button>';
+        } else if (existingRequest) {
+            actionButton = `<button class="user-action-btn cancel-request" data-request-id="${existingRequest.id}"><i class="fas fa-times"></i></button>`;
+        } else {
+            actionButton = '<button class="user-action-btn send-request"><i class="fas fa-plus"></i></button>';
+        }
+
+        return `
+            <div class="search-result-item" data-user-id="${user.id}" data-user-name="${escapeHtml(user.name)}">
+                <div class="user-avatar-small">
+                    ${user.profilePicture
+                        ? `<img src="${user.profilePicture}" alt="${escapeHtml(user.name)}">`
+                        : '<i class="fas fa-user"></i>'}
+                </div>
+                <div class="user-info-small">
+                    <div class="user-name-small">${escapeHtml(user.name)}</div>
+                    <div class="user-email-small">${escapeHtml(user.email)}</div>
+                </div>
+                ${actionButton}
+            </div>
+        `;
+    }).join('');
+
+    // Add click handlers for action buttons
+    resultsContainer.querySelectorAll('.send-request').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const item = btn.closest('.search-result-item');
+            handleSendRequest(item.dataset.userId, item.dataset.userName);
+        });
+    });
+
+    resultsContainer.querySelectorAll('.cancel-request').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const requestId = btn.dataset.requestId;
+            const item = btn.closest('.search-result-item');
+            handleCancelRequest(requestId, item.dataset.userName);
+        });
+    });
+
+    resultsContainer.style.display = 'block';
+}
+
+async function handleSendRequest(userId, userName) {
     try {
-        const request = await sendFriendRequest(usernameOrEmail);
-        input.value = '';
-        alert(`Friend request sent to ${request.friendUsername}`);
-        console.log('✅ Friend request sent');
+        await sendFriendRequest(userId);
+        Logger.success(`✅ Friend request sent to ${userName}`);
+
+        // Reload friend requests and refresh the dropdown
+        await loadFriendRequests();
+
+        // Reload notifications (recipient will see the notification)
+        await loadNotifications();
+
+        // Re-search to refresh the dropdown with updated button states
+        const input = document.getElementById('friendSearch');
+        if (input.value.trim().length >= 2) {
+            const users = await searchUsers(input.value.trim());
+            displaySearchResults(users);
+        }
     } catch (error) {
-        console.error('❌ Error sending friend request:', error);
+        Logger.error('❌ Error sending friend request:', error);
+        // Show error to user only on failure
         alert(error.message);
+    }
+}
+
+async function handleCancelRequest(requestId, userName) {
+    try {
+        await cancelFriendRequest(requestId);
+        Logger.success(`✅ Friend request to ${userName} cancelled`);
+
+        // Reload friend requests and refresh the dropdown
+        await loadFriendRequests();
+
+        // Re-search to refresh the dropdown with updated button states
+        const input = document.getElementById('friendSearch');
+        if (input.value.trim().length >= 2) {
+            const users = await searchUsers(input.value.trim());
+            displaySearchResults(users);
+        }
+    } catch (error) {
+        Logger.error('❌ Error cancelling friend request:', error);
+        // Show error to user only on failure
+        alert(error.message);
+    }
+}
+
+function hideSearchResults() {
+    const resultsContainer = document.getElementById('friendSearchResults');
+    if (resultsContainer) {
+        resultsContainer.style.display = 'none';
     }
 }
 
@@ -448,9 +676,9 @@ async function acceptRequest(requestId) {
         await loadFriendRequests();
         await loadFriends();
 
-        console.log('✅ Friend request accepted');
+        Logger.success(' Friend request accepted');
     } catch (error) {
-        console.error('❌ Error accepting friend request:', error);
+        Logger.error(' Error accepting friend request:', error);
         alert('Failed to accept friend request');
     }
 }
@@ -459,9 +687,9 @@ async function rejectRequest(requestId) {
     try {
         await rejectFriendRequest(requestId);
         await loadFriendRequests();
-        console.log('✅ Friend request rejected');
+        Logger.success(' Friend request rejected');
     } catch (error) {
-        console.error('❌ Error rejecting friend request:', error);
+        Logger.error(' Error rejecting friend request:', error);
         alert('Failed to reject friend request');
     }
 }
@@ -475,9 +703,9 @@ async function removeFriendHandler(friendshipId) {
     try {
         await removeFriend(friendshipId);
         await loadFriends();
-        console.log('✅ Friend removed');
+        Logger.success(' Friend removed');
     } catch (error) {
-        console.error('❌ Error removing friend:', error);
+        Logger.error(' Error removing friend:', error);
         alert('Failed to remove friend');
     }
 }
@@ -504,9 +732,9 @@ async function deleteNotificationHandler(notificationId) {
     try {
         await deleteNotification(notificationId);
         await loadNotifications();
-        console.log('✅ Notification deleted');
+        Logger.success(' Notification deleted');
     } catch (error) {
-        console.error('❌ Error deleting notification:', error);
+        Logger.error(' Error deleting notification:', error);
     }
 }
 
@@ -530,7 +758,7 @@ if (!window.__SPA_MODE__) {
  * Load Profile page for SPA
  */
 export async function loadProfilePage() {
-    console.log('📄 Loading Profile Page...');
+    Logger.debug('📄 Loading Profile Page...');
 
     // Load CSS
     loadPageCSS();
@@ -538,7 +766,7 @@ export async function loadProfilePage() {
     // Get app container
     const app = document.getElementById('app');
     if (!app) {
-        console.error('App container not found');
+        Logger.error('App container not found');
         return;
     }
 
@@ -630,10 +858,15 @@ function getPageHTML() {
                                             <i class="fas fa-user"></i>
                                             Username
                                         </label>
-                                        <input type="text" id="username" class="form-input" readonly>
-                                        <button type="button" class="edit-btn" id="editUsernameBtn">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
+                                        <div class="input-with-buttons">
+                                            <input type="text" id="username" class="form-input" readonly>
+                                            <div class="button-group" id="usernameButtons">
+                                                <button type="button" class="edit-btn" id="editUsernameBtn">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div id="usernameError" class="field-error" style="display: none;"></div>
                                     </div>
 
                                     <div class="form-group">
@@ -691,13 +924,9 @@ function getPageHTML() {
                                 </h2>
                             </div>
                             <div class="card-body">
-                                <form id="addFriendForm" class="add-friend-form">
-                                    <div class="form-group">
-                                        <input type="text" id="friendSearch" class="form-input" placeholder="Enter username or email">
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="fas fa-paper-plane"></i>
-                                            Send Request
-                                        </button>
+                                <form id="addFriendForm" class="add-friend-form" autocomplete="off">
+                                    <div class="form-group" style="position: relative;">
+                                        <input type="text" id="friendSearch" class="form-input" placeholder="Search for friends by name..." autocomplete="off">
                                     </div>
                                 </form>
                             </div>

@@ -30,13 +30,21 @@ namespace Nivoxar.Controllers
             }
 
             // Get tasks where user is owner or participant
-            var sharedTasks = await _context.SharedTasks
+            var sharedTasksData = await _context.SharedTasks
                 .Include(st => st.Task)
                 .ThenInclude(t => t.SubTasks)
                 .Include(st => st.Task.Category)
+                .Include(st => st.Owner)
                 .Include(st => st.Participants)
+                .ThenInclude(p => p.User)
                 .Where(st => st.OwnerId == userId || st.Participants.Any(p => p.UserId == userId))
-                .Select(st => new
+                .ToListAsync();
+
+            var sharedTasks = sharedTasksData.Select(st =>
+            {
+                var isOwner = st.OwnerId == userId;
+
+                return new
                 {
                     st.Id,
                     st.TaskId,
@@ -70,28 +78,42 @@ namespace Nivoxar.Controllers
                     },
                     st.OwnerId,
                     st.OwnerUsername,
-                    IsOwner = st.OwnerId == userId,
-                    Participants = st.Participants.Select(p => new
+                    IsOwner = isOwner,
+                    Participants = new[] {
+                        // Include owner as first participant
+                        new {
+                            Id = 0,
+                            UserId = st.OwnerId,
+                            Username = st.OwnerUsername,
+                            Email = st.Owner.Email ?? "",
+                            ProfilePicture = st.Owner.ProfilePicture,
+                            Role = "owner",
+                            AddedAt = st.CreatedAt
+                        }
+                    }
+                    .Concat(st.Participants.Select(p => new
                     {
                         p.Id,
                         p.UserId,
                         p.Username,
                         p.Email,
+                        ProfilePicture = p.User.ProfilePicture,
                         p.Role,
                         p.AddedAt
-                    }).ToList(),
+                    }))
+                    .ToList(),
                     Permissions = new
                     {
-                        st.CanEdit,
-                        st.CanAddSubtasks,
-                        st.CanShare,
-                        st.CanDelete
+                        CanEdit = isOwner || st.CanEdit,
+                        CanAddSubtasks = isOwner || st.CanAddSubtasks,
+                        CanShare = isOwner || st.CanShare,
+                        CanDelete = isOwner || st.CanDelete  // Owner always has delete permission
                     },
                     st.CreatedAt,
                     st.UpdatedAt,
                     st.LastEditedBy
-                })
-                .ToListAsync();
+                };
+            }).ToList();
 
             return Ok(sharedTasks);
         }
@@ -106,73 +128,92 @@ namespace Nivoxar.Controllers
                 return Unauthorized(new { message = "User not authenticated" });
             }
 
-            var sharedTask = await _context.SharedTasks
+            var sharedTaskData = await _context.SharedTasks
                 .Include(st => st.Task)
                 .ThenInclude(t => t.SubTasks)
                 .Include(st => st.Task.Category)
+                .Include(st => st.Owner)
                 .Include(st => st.Participants)
+                .ThenInclude(p => p.User)
                 .Where(st => st.TaskId == taskId && (st.OwnerId == userId || st.Participants.Any(p => p.UserId == userId)))
-                .Select(st => new
-                {
-                    st.Id,
-                    st.TaskId,
-                    Task = new
-                    {
-                        st.Task.Id,
-                        st.Task.Title,
-                        st.Task.Description,
-                        st.Task.Priority,
-                        st.Task.DueDate,
-                        st.Task.DueTime,
-                        st.Task.Completed,
-                        st.Task.CreatedAt,
-                        st.Task.CompletedAt,
-                        Category = st.Task.Category != null ? new
-                        {
-                            st.Task.Category.Id,
-                            st.Task.Category.Name,
-                            st.Task.Category.Color
-                        } : null,
-                        SubTasks = st.Task.SubTasks.Select(sub => new
-                        {
-                            sub.Id,
-                            sub.Title,
-                            sub.Description,
-                            sub.Completed,
-                            sub.Order,
-                            sub.CreatedAt,
-                            sub.CompletedAt
-                        }).OrderBy(sub => sub.Order).ToList()
-                    },
-                    st.OwnerId,
-                    st.OwnerUsername,
-                    IsOwner = st.OwnerId == userId,
-                    Participants = st.Participants.Select(p => new
-                    {
-                        p.Id,
-                        p.UserId,
-                        p.Username,
-                        p.Email,
-                        p.Role,
-                        p.AddedAt
-                    }).ToList(),
-                    Permissions = new
-                    {
-                        st.CanEdit,
-                        st.CanAddSubtasks,
-                        st.CanShare,
-                        st.CanDelete
-                    },
-                    st.CreatedAt,
-                    st.UpdatedAt,
-                    st.LastEditedBy
-                })
                 .FirstOrDefaultAsync();
 
-            if (sharedTask == null)
+            if (sharedTaskData == null)
             {
                 return NotFound(new { message = "Shared task not found" });
             }
+
+            var isOwner = sharedTaskData.OwnerId == userId;
+
+            var sharedTask = new
+            {
+                sharedTaskData.Id,
+                sharedTaskData.TaskId,
+                Task = new
+                {
+                    sharedTaskData.Task.Id,
+                    sharedTaskData.Task.Title,
+                    sharedTaskData.Task.Description,
+                    sharedTaskData.Task.Priority,
+                    sharedTaskData.Task.DueDate,
+                    sharedTaskData.Task.DueTime,
+                    sharedTaskData.Task.Completed,
+                    sharedTaskData.Task.CreatedAt,
+                    sharedTaskData.Task.CompletedAt,
+                    Category = sharedTaskData.Task.Category != null ? new
+                    {
+                        sharedTaskData.Task.Category.Id,
+                        sharedTaskData.Task.Category.Name,
+                        sharedTaskData.Task.Category.Color
+                    } : null,
+                    SubTasks = sharedTaskData.Task.SubTasks.Select(sub => new
+                    {
+                        sub.Id,
+                        sub.Title,
+                        sub.Description,
+                        sub.Completed,
+                        sub.Order,
+                        sub.CreatedAt,
+                        sub.CompletedAt
+                    }).OrderBy(sub => sub.Order).ToList()
+                },
+                sharedTaskData.OwnerId,
+                sharedTaskData.OwnerUsername,
+                IsOwner = sharedTaskData.OwnerId == userId,
+                Participants = new[] {
+                    // Include owner as first participant
+                    new {
+                        Id = 0,
+                        UserId = sharedTaskData.OwnerId,
+                        Username = sharedTaskData.OwnerUsername,
+                        Email = sharedTaskData.Owner.Email ?? "",
+                        ProfilePicture = sharedTaskData.Owner.ProfilePicture,
+                        Role = "owner",
+                        AddedAt = sharedTaskData.CreatedAt
+                    }
+                }
+                .Concat(sharedTaskData.Participants.Select(p => new
+                {
+                    p.Id,
+                    p.UserId,
+                    p.Username,
+                    p.Email,
+                    ProfilePicture = p.User.ProfilePicture,
+                    p.Role,
+                    p.AddedAt
+                }))
+                .ToList(),
+                Permissions = new
+                {
+                    CanEdit = isOwner || sharedTaskData.CanEdit,
+                    CanAddSubtasks = isOwner || sharedTaskData.CanAddSubtasks,
+                    CanShare = isOwner || sharedTaskData.CanShare,
+                    CanDelete = isOwner || sharedTaskData.CanDelete  // Owner always has delete permission
+                },
+                sharedTaskData.CreatedAt,
+                sharedTaskData.UpdatedAt,
+                sharedTaskData.LastEditedBy
+            };
 
             return Ok(sharedTask);
         }
@@ -428,6 +469,59 @@ namespace Nivoxar.Controllers
             return Ok(new { message = "Participant removed successfully" });
         }
 
+        // PUT: api/sharedtasks/{taskId}/permissions - Update shared task permissions (owner only)
+        [HttpPut("{taskId}/permissions")]
+        public async Task<IActionResult> UpdatePermissions(int taskId, [FromBody] UpdatePermissionsRequest request)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            var sharedTask = await _context.SharedTasks
+                .FirstOrDefaultAsync(st => st.TaskId == taskId);
+
+            if (sharedTask == null)
+            {
+                return NotFound(new { message = "Shared task not found" });
+            }
+
+            // Only owner can update permissions
+            if (sharedTask.OwnerId != userId)
+            {
+                return Forbid();
+            }
+
+            // Update permissions
+            if (request.CanEdit.HasValue)
+                sharedTask.CanEdit = request.CanEdit.Value;
+
+            if (request.CanAddSubtasks.HasValue)
+                sharedTask.CanAddSubtasks = request.CanAddSubtasks.Value;
+
+            if (request.CanShare.HasValue)
+                sharedTask.CanShare = request.CanShare.Value;
+
+            if (request.CanDelete.HasValue)
+                sharedTask.CanDelete = request.CanDelete.Value;
+
+            sharedTask.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Permissions updated successfully",
+                permissions = new
+                {
+                    sharedTask.CanEdit,
+                    sharedTask.CanAddSubtasks,
+                    sharedTask.CanShare,
+                    sharedTask.CanDelete
+                }
+            });
+        }
+
         // DELETE: api/sharedtasks/task/5 - Unshare task (owner only)
         [HttpDelete("task/{taskId}")]
         public async Task<IActionResult> UnshareTask(int taskId)
@@ -546,5 +640,13 @@ namespace Nivoxar.Controllers
     public class AddParticipantsRequest
     {
         public List<string> UserIds { get; set; } = new List<string>();
+    }
+
+    public class UpdatePermissionsRequest
+    {
+        public bool? CanEdit { get; set; }
+        public bool? CanAddSubtasks { get; set; }
+        public bool? CanShare { get; set; }
+        public bool? CanDelete { get; set; }
     }
 }

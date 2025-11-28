@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Nivoxar.Models.Entities;
 using System.Security.Claims;
 
@@ -39,6 +40,7 @@ namespace Nivoxar.Controllers
                 id = user.Id,
                 email = user.Email,
                 name = user.Name,
+                username = user.UserName,
                 profilePicture = user.ProfilePicture,
                 createdAt = user.CreatedAt,
                 lastLoginAt = user.LastLoginAt
@@ -84,6 +86,7 @@ namespace Nivoxar.Controllers
                 id = user.Id,
                 email = user.Email,
                 name = user.Name,
+                username = user.UserName,
                 profilePicture = user.ProfilePicture,
                 createdAt = user.CreatedAt,
                 lastLoginAt = user.LastLoginAt
@@ -125,6 +128,7 @@ namespace Nivoxar.Controllers
                 id = user.Id,
                 email = user.Email,
                 name = user.Name,
+                username = user.UserName,
                 profilePicture = user.ProfilePicture,
                 createdAt = user.CreatedAt,
                 lastLoginAt = user.LastLoginAt
@@ -152,6 +156,14 @@ namespace Nivoxar.Controllers
                 return BadRequest(new { message = "Name is required" });
             }
 
+            // Check if name is already taken by another user
+            var existingUser = await _userManager.Users
+                .FirstOrDefaultAsync(u => u.Name.ToLower() == request.Name.ToLower() && u.Id != userId);
+            if (existingUser != null)
+            {
+                return BadRequest(new { message = "This name is already taken. Please choose a different name." });
+            }
+
             user.Name = request.Name;
 
             var result = await _userManager.UpdateAsync(user);
@@ -166,10 +178,57 @@ namespace Nivoxar.Controllers
                 id = user.Id,
                 email = user.Email,
                 name = user.Name,
+                username = user.UserName,
                 profilePicture = user.ProfilePicture,
                 createdAt = user.CreatedAt,
                 lastLoginAt = user.LastLoginAt
             });
+        }
+
+        // GET: api/users/search?query=name
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchUsers([FromQuery] string query)
+        {
+            if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+            {
+                return Ok(new { users = new List<object>() });
+            }
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            // Search users by name (case-insensitive, partial match)
+            var users = await _userManager.Users
+                .Where(u => u.Id != currentUserId && u.Name.ToLower().Contains(query.ToLower()))
+                .OrderBy(u => u.Name)
+                .Take(10)
+                .Select(u => new
+                {
+                    id = u.Id,
+                    name = u.Name,
+                    email = u.Email,
+                    profilePicture = u.ProfilePicture
+                })
+                .ToListAsync();
+
+            return Ok(new { users });
+        }
+
+        // GET: api/users/check-name?name=username
+        [HttpGet("check-name")]
+        public async Task<IActionResult> CheckNameAvailability([FromQuery] string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return BadRequest(new { message = "Name is required" });
+            }
+
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            // Check if name exists (case-insensitive) for another user
+            var exists = await _userManager.Users
+                .AnyAsync(u => u.Name.ToLower() == name.ToLower() && u.Id != currentUserId);
+
+            return Ok(new { available = !exists });
         }
     }
 

@@ -241,7 +241,8 @@ namespace Nivoxar.Controllers
                 UserName = request.Email,
                 Email = request.Email,
                 Name = request.Name ?? request.Email.Split('@')[0],
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                LastLoginAt = DateTime.UtcNow  // Set on registration
             };
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -266,7 +267,10 @@ namespace Nivoxar.Controllers
                     id = user.Id,
                     email = user.Email,
                     name = user.Name,
-                    createdAt = user.CreatedAt
+                    username = user.UserName,
+                    profilePicture = user.ProfilePicture,
+                    createdAt = user.CreatedAt,
+                    lastLoginAt = user.LastLoginAt
                 }
             });
         }
@@ -310,6 +314,8 @@ namespace Nivoxar.Controllers
                     id = user.Id,
                     email = user.Email,
                     name = user.Name,
+                    username = user.UserName,
+                    profilePicture = user.ProfilePicture,
                     createdAt = user.CreatedAt,
                     lastLoginAt = user.LastLoginAt
                 }

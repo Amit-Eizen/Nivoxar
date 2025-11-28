@@ -1,5 +1,6 @@
 // LoginPage.js - Enhanced with Authentication & Redirect
-import { checkIfLoggedIn, login, register } from '../services/AuthService.js';
+import { checkIfLoggedIn, login, register, sendVerificationCode, verifyEmailCode } from '../services/AuthService.js';
+import Logger from '../utils/Logger.js';
 
 function initializeLoginPage() {
     // Check if already logged in
@@ -27,6 +28,234 @@ function initializeLoginPage() {
         if (registerForm) registerForm.style.display = 'block';
         headerRegisterBtn?.classList.add('active');
         headerLoginBtn?.classList.remove('active');
+
+        // Initialize Email Verification Form
+        initEmailVerificationForm();
+    }
+
+    // Email Verification State
+    let verificationStep = 1; // 1: Email, 2: Code, 3: Complete Registration
+    let verifiedEmail = '';
+
+    // Initialize Email Verification Form for registration
+    function initEmailVerificationForm() {
+        const container = document.getElementById('emailVerificationContainer');
+        if (!container) return;
+
+        // Reset to step 1
+        verificationStep = 1;
+        verifiedEmail = '';
+        renderVerificationStep();
+    }
+
+    // Render current verification step
+    function renderVerificationStep() {
+        const container = document.getElementById('emailVerificationContainer');
+        const registerFormElement = document.getElementById('registerFormElement');
+
+        if (!container) return;
+
+        if (verificationStep === 1) {
+            // Step 1: Enter Email
+            container.innerHTML = `
+                <form id="verificationEmailForm">
+                    <div class="form-group">
+                        <label class="form-label" for="verificationEmail">
+                            <i>📧</i>
+                            <span>Email Address</span>
+                        </label>
+                        <input
+                            type="email"
+                            id="verificationEmail"
+                            class="form-input"
+                            placeholder="your@email.com"
+                            required
+                        >
+                    </div>
+
+                    <button type="submit" class="auth-submit-btn">
+                        <span>Send Verification Code</span>
+                        <i>→</i>
+                    </button>
+
+                    <div class="auth-divider">
+                        <span>or</span>
+                    </div>
+
+                    <p class="auth-footer">
+                        Already have an account?
+                        <button type="button" class="auth-link" id="verificationBackToLogin">
+                            Sign in
+                        </button>
+                    </p>
+                </form>
+            `;
+
+            registerFormElement.style.display = 'none';
+
+            // Add event listeners
+            const emailForm = document.getElementById('verificationEmailForm');
+            const backToLoginBtn = document.getElementById('verificationBackToLogin');
+
+            emailForm?.addEventListener('submit', handleSendVerificationCode);
+            backToLoginBtn?.addEventListener('click', (e) => {
+                e.preventDefault();
+                showLoginForm();
+            });
+
+        } else if (verificationStep === 2) {
+            // Step 2: Enter Verification Code
+            container.innerHTML = `
+                <form id="verificationCodeForm">
+                    <p style="color: #94a3b8; margin-bottom: 24px; text-align: center; font-size: 13px;">
+                        We sent a 6-digit code to <strong style="color: #10b981;">${verifiedEmail}</strong>
+                    </p>
+
+                    <div class="form-group">
+                        <label class="form-label" for="verificationCode">
+                            <i>🔑</i>
+                            <span>Verification Code</span>
+                        </label>
+                        <input
+                            type="text"
+                            id="verificationCode"
+                            class="form-input"
+                            placeholder="000000"
+                            maxlength="6"
+                            required
+                            style="text-align: center; font-size: 17px; letter-spacing: 5px;"
+                        >
+                    </div>
+
+                    <button type="submit" class="auth-submit-btn">
+                        <span>Verify Code</span>
+                        <i>✓</i>
+                    </button>
+
+                    <div class="auth-divider">
+                        <span>or</span>
+                    </div>
+
+                    <p class="auth-footer">
+                        <button type="button" class="auth-link" id="backToEmailBtn">
+                            ← Change Email
+                        </button>
+                        •
+                        <button type="button" class="auth-link" id="resendCodeBtn">
+                            Resend Code
+                        </button>
+                    </p>
+                </form>
+            `;
+
+            registerFormElement.style.display = 'none';
+
+            // Add event listeners
+            const codeForm = document.getElementById('verificationCodeForm');
+            const resendBtn = document.getElementById('resendCodeBtn');
+            const backToEmailBtn = document.getElementById('backToEmailBtn');
+
+            codeForm?.addEventListener('submit', handleVerifyCode);
+            resendBtn?.addEventListener('click', handleResendCode);
+            backToEmailBtn?.addEventListener('click', handleBackToEmail);
+
+        } else if (verificationStep === 3) {
+            // Step 3: Complete Registration (show the original form with verified email)
+            container.innerHTML = '';
+            registerFormElement.style.display = 'block';
+
+            // Pre-fill the email field with verified email
+            const emailInput = document.getElementById('registerEmail');
+            if (emailInput) {
+                emailInput.value = verifiedEmail;
+                emailInput.readOnly = true;
+            }
+        }
+    }
+
+    // Handle Send Verification Code
+    async function handleSendVerificationCode(e) {
+        e.preventDefault();
+
+        const emailInput = document.getElementById('verificationEmail');
+        const email = emailInput?.value.trim();
+
+        if (!email || !isValidEmail(email)) {
+            alert('Please enter a valid email address');
+            return;
+        }
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Sending...</span><i>⏳</i>';
+
+        const result = await sendVerificationCode(email);
+
+        if (result.success) {
+            verifiedEmail = email;
+            verificationStep = 2;
+            renderVerificationStep();
+        } else {
+            alert(result.error || 'Failed to send verification code');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Send Verification Code</span><i>→</i>';
+        }
+    }
+
+    // Handle Verify Code
+    async function handleVerifyCode(e) {
+        e.preventDefault();
+
+        const codeInput = document.getElementById('verificationCode');
+        const code = codeInput?.value.trim();
+
+        if (!code || code.length !== 6) {
+            alert('Please enter a valid 6-digit code');
+            return;
+        }
+
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Verifying...</span><i>⏳</i>';
+
+        const result = await verifyEmailCode(verifiedEmail, code);
+
+        if (result.success && result.verified) {
+            verificationStep = 3;
+            renderVerificationStep();
+        } else {
+            alert(result.error || 'Invalid verification code');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Verify Code</span><i>✓</i>';
+        }
+    }
+
+    // Handle Resend Code
+    async function handleResendCode(e) {
+        e.preventDefault();
+
+        const btn = e.target;
+        btn.disabled = true;
+        btn.textContent = 'Sending...';
+
+        const result = await sendVerificationCode(verifiedEmail);
+
+        if (result.success) {
+            alert('Verification code resent successfully!');
+            btn.disabled = false;
+            btn.textContent = 'Resend Code';
+        } else {
+            alert(result.error || 'Failed to resend code');
+            btn.disabled = false;
+            btn.textContent = 'Resend Code';
+        }
+    }
+
+    // Handle Back to Email
+    function handleBackToEmail(e) {
+        e.preventDefault();
+        verificationStep = 1;
+        renderVerificationStep();
     }
     
     // Event listeners
@@ -263,7 +492,7 @@ if (!window.__SPA_MODE__) {
  * Load Login page for SPA
  */
 export async function loadLoginPage() {
-    console.log('📄 Loading Login Page...');
+    Logger.debug('📄 Loading Login Page...');
 
     // Load CSS
     loadPageCSS();
@@ -271,7 +500,7 @@ export async function loadLoginPage() {
     // Get app container
     const app = document.getElementById('app');
     if (!app) {
-        console.error('App container not found');
+        Logger.error('App container not found');
         return;
     }
 
@@ -497,7 +726,10 @@ function getPageHTML() {
                             <p>Join Nivoxar today</p>
                         </div>
 
-                        <form id="registerFormElement">
+                        <!-- Email Verification Form Component -->
+                        <div id="emailVerificationContainer"></div>
+
+                        <form id="registerFormElement" style="display: none;">
                             <div class="form-group">
                                 <label class="form-label" for="registerName">
                                     <i>👤</i>

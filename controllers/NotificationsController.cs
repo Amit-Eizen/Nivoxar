@@ -28,6 +28,8 @@ namespace Nivoxar.Controllers
                 return Unauthorized(new { message = "User not authenticated" });
             }
 
+            Console.WriteLine($"[DEBUG] GetNotifications - UserId: {userId}, UnreadOnly: {unreadOnly}");
+
             var query = _context.Notifications.Where(n => n.UserId == userId);
 
             if (unreadOnly == true)
@@ -48,6 +50,8 @@ namespace Nivoxar.Controllers
                     n.CreatedAt
                 })
                 .ToListAsync();
+
+            Console.WriteLine($"[DEBUG] GetNotifications - Found {notifications.Count} notifications");
 
             return Ok(notifications);
         }

@@ -1,3 +1,4 @@
+import Logger from '../utils/Logger.js';
 /**
  * Main App Entry Point
  * Initializes the SPA and registers all routes
@@ -43,7 +44,7 @@ async function initApp() {
         await router.init();
 
     } catch (error) {
-        console.error('Failed to initialize app:', error);
+        Logger.error('Failed to initialize app:', error);
         showError('Failed to load application. Please refresh the page.');
     }
 }
@@ -88,15 +89,38 @@ function setupNavigationCallbacks() {
             if (navbarContainer) {
                 navbarContainer.style.display = 'block';
 
-                // Render navbar if not already rendered
-                if (!navbarContainer.innerHTML.trim()) {
-                    await renderNavbar();
-                }
+                // Always refresh user data and re-render navbar
+                await refreshUserDataAndNavbar();
             }
         }
 
         updateNavbarActiveState(path);
     });
+}
+
+/**
+ * Refresh user data from API and update navbar
+ */
+async function refreshUserDataAndNavbar() {
+    try {
+        const { getCurrentUserProfile } = await import('../services/AuthService.js');
+        const { STORAGE_KEYS } = await import('../utils/StorageKeys.js');
+
+        // Fetch fresh user data from API
+        const freshUser = await getCurrentUserProfile();
+
+        // Update localStorage
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(freshUser));
+
+        // Re-render navbar with updated data
+        await renderNavbar();
+
+        Logger.debug('✅ User data and navbar refreshed');
+    } catch (error) {
+        Logger.error('Failed to refresh user data:', error);
+        // If refresh fails, just render navbar with cached data
+        await renderNavbar();
+    }
 }
 
 /**

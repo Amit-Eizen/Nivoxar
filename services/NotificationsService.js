@@ -1,5 +1,6 @@
 // NotificationsService.js - Notifications Management
 import { apiRequest } from './AuthService.js';
+import Logger from '../utils/Logger.js';
 
 // ===== NOTIFICATION TYPES =====
 export const NOTIFICATION_TYPES = {
@@ -19,7 +20,7 @@ export async function getAllNotifications(unreadOnly = false) {
         });
         return notifications;
     } catch (error) {
-        console.error('Error loading notifications:', error);
+        Logger.error('Error loading notifications:', error);
         return [];
     }
 }
@@ -37,7 +38,7 @@ export async function getUnreadCount() {
         });
         return data.count;
     } catch (error) {
-        console.error('Error getting unread count:', error);
+        Logger.error('Error getting unread count:', error);
         return 0;
     }
 }
@@ -48,9 +49,9 @@ export async function markAsRead(notificationId) {
         await apiRequest(`/notifications/${notificationId}/read`, {
             method: 'PUT'
         });
-        console.log('✅ Notification marked as read');
+        Logger.success(' Notification marked as read');
     } catch (error) {
-        console.error('❌ Error marking notification as read:', error);
+        Logger.error(' Error marking notification as read:', error);
         throw error;
     }
 }
@@ -61,9 +62,9 @@ export async function markAllAsRead() {
         await apiRequest('/notifications/mark-all-read', {
             method: 'PUT'
         });
-        console.log('✅ All notifications marked as read');
+        Logger.success(' All notifications marked as read');
     } catch (error) {
-        console.error('❌ Error marking all as read:', error);
+        Logger.error(' Error marking all as read:', error);
         throw error;
     }
 }
@@ -74,9 +75,9 @@ export async function deleteNotification(notificationId) {
         await apiRequest(`/notifications/${notificationId}`, {
             method: 'DELETE'
         });
-        console.log('✅ Notification deleted');
+        Logger.success(' Notification deleted');
     } catch (error) {
-        console.error('❌ Error deleting notification:', error);
+        Logger.error(' Error deleting notification:', error);
         throw error;
     }
 }
@@ -87,9 +88,9 @@ export async function clearAllNotifications() {
         await apiRequest('/notifications/clear-all', {
             method: 'DELETE'
         });
-        console.log('✅ All notifications cleared');
+        Logger.success(' All notifications cleared');
     } catch (error) {
-        console.error('❌ Error clearing notifications:', error);
+        Logger.error(' Error clearing notifications:', error);
         throw error;
     }
 }
@@ -102,26 +103,26 @@ export async function clearAllNotifications() {
  * @deprecated Notifications are now created automatically by the backend
  */
 export function notifyFriendRequest() {
-    console.warn('⚠️ notifyFriendRequest() is deprecated - notifications are now created by the backend');
+    Logger.warn('⚠️ notifyFriendRequest() is deprecated - notifications are now created by the backend');
 }
 
 /**
  * @deprecated Notifications are now created automatically by the backend
  */
 export function notifyFriendAccepted() {
-    console.warn('⚠️ notifyFriendAccepted() is deprecated - notifications are now created by the backend');
+    Logger.warn('⚠️ notifyFriendAccepted() is deprecated - notifications are now created by the backend');
 }
 
 /**
  * @deprecated Notifications are now created automatically by the backend
  */
 export function notifyTaskShared() {
-    console.warn('⚠️ notifyTaskShared() is deprecated - notifications are now created by the backend');
+    Logger.warn('⚠️ notifyTaskShared() is deprecated - notifications are now created by the backend');
 }
 
 /**
  * @deprecated Notifications are now created automatically by the backend
  */
 export function notifyTaskUpdated() {
-    console.warn('⚠️ notifyTaskUpdated() is deprecated - notifications are now created by the backend');
+    Logger.warn('⚠️ notifyTaskUpdated() is deprecated - notifications are now created by the backend');
 }

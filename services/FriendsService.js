@@ -1,5 +1,6 @@
 // FriendsService.js - Friends & Friend Requests Management (API-based)
 import { apiRequest } from './AuthService.js';
+import Logger from '../utils/Logger.js';
 
 // ===== CONFIGURATION =====
 const CONFIG = {
@@ -19,10 +20,10 @@ export async function getAllFriends() {
         const friends = await apiRequest(CONFIG.apiBaseURL, {
             method: 'GET'
         });
-        console.log('✅ Friends loaded from API:', friends.length);
+        Logger.success(' Friends loaded from API:', friends.length);
         return friends;
     } catch (error) {
-        console.error('❌ Failed to load friends from API:', error);
+        Logger.error(' Failed to load friends from API:', error);
         return [];
     }
 }
@@ -33,10 +34,10 @@ export async function getFriendRequests() {
         const data = await apiRequest(`${CONFIG.apiBaseURL}/requests`, {
             method: 'GET'
         });
-        console.log('✅ Friend requests loaded:', data);
+        Logger.success(' Friend requests loaded:', data);
         return data; // { incoming: [], outgoing: [] }
     } catch (error) {
-        console.error('❌ Failed to load friend requests:', error);
+        Logger.error(' Failed to load friend requests:', error);
         return { incoming: [], outgoing: [] };
     }
 }
@@ -48,10 +49,10 @@ export async function searchUsers(query) {
             method: 'POST',
             body: JSON.stringify({ Query: query }) // PascalCase for C#
         });
-        console.log('✅ Users found:', users.length);
+        Logger.success(' Users found:', users.length);
         return users;
     } catch (error) {
-        console.error('❌ Failed to search users:', error);
+        Logger.error(' Failed to search users:', error);
         throw error;
     }
 }
@@ -63,10 +64,10 @@ export async function sendFriendRequest(friendId) {
             method: 'POST',
             body: JSON.stringify({ FriendId: friendId }) // PascalCase for C#
         });
-        console.log('✅ Friend request sent:', friendRequest);
+        Logger.success(' Friend request sent:', friendRequest);
         return friendRequest;
     } catch (error) {
-        console.error('❌ Failed to send friend request:', error);
+        Logger.error(' Failed to send friend request:', error);
         throw error;
     }
 }
@@ -77,10 +78,10 @@ export async function acceptFriendRequest(requestId) {
         const request = await apiRequest(`${CONFIG.apiBaseURL}/${requestId}/accept`, {
             method: 'PUT'
         });
-        console.log('✅ Friend request accepted:', request);
+        Logger.success(' Friend request accepted:', request);
         return request;
     } catch (error) {
-        console.error('❌ Failed to accept friend request:', error);
+        Logger.error(' Failed to accept friend request:', error);
         throw error;
     }
 }
@@ -91,10 +92,24 @@ export async function rejectFriendRequest(requestId) {
         await apiRequest(`${CONFIG.apiBaseURL}/${requestId}/reject`, {
             method: 'PUT'
         });
-        console.log('✅ Friend request rejected');
+        Logger.success(' Friend request rejected');
         return true;
     } catch (error) {
-        console.error('❌ Failed to reject friend request:', error);
+        Logger.error(' Failed to reject friend request:', error);
+        throw error;
+    }
+}
+
+// ===== CANCEL FRIEND REQUEST (for outgoing requests) =====
+export async function cancelFriendRequest(requestId) {
+    try {
+        await apiRequest(`${CONFIG.apiBaseURL}/${requestId}`, {
+            method: 'DELETE'
+        });
+        Logger.success(' Friend request cancelled');
+        return true;
+    } catch (error) {
+        Logger.error(' Failed to cancel friend request:', error);
         throw error;
     }
 }
@@ -105,10 +120,10 @@ export async function removeFriend(friendshipId) {
         await apiRequest(`${CONFIG.apiBaseURL}/${friendshipId}`, {
             method: 'DELETE'
         });
-        console.log('✅ Friend removed');
+        Logger.success(' Friend removed');
         return true;
     } catch (error) {
-        console.error('❌ Failed to remove friend:', error);
+        Logger.error(' Failed to remove friend:', error);
         throw error;
     }
 }

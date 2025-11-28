@@ -1,5 +1,6 @@
 // ===== CATEGORY SERVICE =====
 // Central service for category management
+import Logger from '../utils/Logger.js';
 // Supports both localStorage (current) and API (future)
 
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
@@ -63,7 +64,7 @@ function getCategoriesFromLocalStorage() {
             );
             
             if (hasInvalidCategories) {
-                console.warn('⚠️ Found invalid categories, resetting to defaults...');
+                Logger.warn('⚠️ Found invalid categories, resetting to defaults...');
                 saveCategoriesLocally(DEFAULT_CATEGORIES);
                 return DEFAULT_CATEGORIES;
             }
@@ -76,7 +77,7 @@ function getCategoriesFromLocalStorage() {
         return DEFAULT_CATEGORIES;
         
     } catch (error) {
-        console.error('Error loading categories from localStorage:', error);
+        Logger.error('Error loading categories from localStorage:', error);
         return DEFAULT_CATEGORIES;
     }
 }
@@ -86,7 +87,7 @@ function saveCategoriesLocally(categories) {
         localStorage.setItem(CONFIG.storageKey, JSON.stringify(categories));
         return true;
     } catch (error) {
-        console.error('Error saving categories to localStorage:', error);
+        Logger.error('Error saving categories to localStorage:', error);
         return false;
     }
 }
@@ -148,7 +149,7 @@ async function getCategoriesFromAPI() {
         });
         return data;
     } catch (error) {
-        console.error('Error fetching categories from API:', error);
+        Logger.error('Error fetching categories from API:', error);
         throw error;
     }
 }
@@ -164,7 +165,7 @@ async function createCategoryViaAPI(categoryData) {
         });
         return data;
     } catch (error) {
-        console.error('Error creating category via API:', error);
+        Logger.error('Error creating category via API:', error);
         throw error;
     }
 }
@@ -180,7 +181,7 @@ async function updateCategoryViaAPI(categoryId, updatedData) {
         });
         return data;
     } catch (error) {
-        console.error('Error updating category via API:', error);
+        Logger.error('Error updating category via API:', error);
         throw error;
     }
 }
@@ -192,7 +193,7 @@ async function deleteCategoryViaAPI(categoryId) {
         });
         return true;
     } catch (error) {
-        console.error('Error deleting category via API:', error);
+        Logger.error('Error deleting category via API:', error);
         throw error;
     }
 }
@@ -204,7 +205,7 @@ async function getCategoryByIdViaAPI(categoryId) {
         });
         return data;
     } catch (error) {
-        console.error('Error fetching category via API:', error);
+        Logger.error('Error fetching category via API:', error);
         throw error;
     }
 }
@@ -264,7 +265,7 @@ export function getAllCategoriesSync() {
     }
 
     // Otherwise, return empty array and warn
-    console.warn('⚠️ getAllCategoriesSync() called but cache not loaded - call await getAllCategories() first');
+    Logger.warn('⚠️ getAllCategoriesSync() called but cache not loaded - call await getAllCategories() first');
     return [];
 }
 
@@ -298,6 +299,15 @@ export async function updateCategory(categoryId, updatedData) {
         result = updateCategoryLocally(categoryId, updatedData);
     }
     clearCategoriesCache(); // Clear cache after mutation
+
+    // Reload cache immediately before emitting event
+    await getAllCategories();
+
+    // Emit category updated event for real-time UI updates
+    window.dispatchEvent(new CustomEvent('categoryUpdated', {
+        detail: { categoryId, updatedData: result }
+    }));
+
     return result;
 }
 
@@ -339,8 +349,8 @@ export function enableAPIMode(apiBaseURL) {
     if (apiBaseURL) {
         CONFIG.apiBaseURL = apiBaseURL;
     }
-    console.log('✅ CategoryService: API mode enabled');
-    console.log('📡 API Base URL:', CONFIG.apiBaseURL);
+    Logger.success(' CategoryService: API mode enabled');
+    Logger.info('📡 API Base URL:', CONFIG.apiBaseURL);
 }
 
 /**
@@ -348,7 +358,7 @@ export function enableAPIMode(apiBaseURL) {
  */
 export function disableAPIMode() {
     CONFIG.useAPI = false;
-    console.log('✅ CategoryService: localStorage mode enabled');
+    Logger.success(' CategoryService: localStorage mode enabled');
 }
 
 /**
@@ -375,11 +385,11 @@ export function getDefaultCategories() {
  */
 export async function resetCategories() {
     if (CONFIG.useAPI) {
-        console.warn('⚠️ resetCategories() not implemented for API mode yet');
+        Logger.warn('⚠️ resetCategories() not implemented for API mode yet');
         return [];
     } else {
         saveCategoriesLocally(DEFAULT_CATEGORIES);
-        console.log('✅ Categories reset to defaults');
+        Logger.success(' Categories reset to defaults');
         return DEFAULT_CATEGORIES;
     }
 }
@@ -392,10 +402,11 @@ export async function resetCategories() {
 export async function incrementTaskCount(categoryId) {
     if (!categoryId) return false;
 
-    // Just clear cache - let backend handle the count
+    // Clear cache and reload it immediately - let backend handle the count
     clearCategoriesCache();
+    await getAllCategories(); // Reload cache so subsequent renders have fresh data
 
-    console.log(`✅ Task count cache cleared for category: ${categoryId}`);
+    Logger.info(`✅ Task count cache refreshed for category: ${categoryId}`);
     return true;
 }
 
@@ -407,10 +418,11 @@ export async function incrementTaskCount(categoryId) {
 export async function decrementTaskCount(categoryId) {
     if (!categoryId) return false;
 
-    // Just clear cache - let backend handle the count
+    // Clear cache and reload it immediately - let backend handle the count
     clearCategoriesCache();
+    await getAllCategories(); // Reload cache so subsequent renders have fresh data
 
-    console.log(`✅ Task count cache cleared for category: ${categoryId}`);
+    Logger.info(`✅ Task count cache refreshed for category: ${categoryId}`);
     return true;
 }
 
@@ -436,12 +448,12 @@ export async function recalculateTaskCounts(tasks) {
     });
     
     saveCategoriesLocally(categories);
-    console.log('✅ Task counts recalculated');
+    Logger.success(' Task counts recalculated');
     return true;
 }
 
 // Log current mode on load
-console.log(`📦 CategoryService loaded in ${CONFIG.useAPI ? 'API' : 'localStorage'} mode`);
+Logger.info(`📦 CategoryService loaded in ${CONFIG.useAPI ? 'API' : 'localStorage'} mode`);
 // ===== CATEGORY OPTIONS HTML GENERATION =====
 
 /**
@@ -455,10 +467,10 @@ export function getCategoryOptionsHTML(selectedId = null, includeEmpty = true, c
     // Use provided categories array, or fall back to sync call (with warning)
     const categories = categoriesArray || getAllCategoriesSync();
 
-    console.log('📋 Generating category options HTML...');
-    console.log('  Total categories:', categories.length);
-    console.log('  Selected ID:', selectedId);
-    console.log('  Include empty:', includeEmpty);
+    Logger.info('📋 Generating category options HTML...');
+    Logger.info('  Total categories:', categories.length);
+    Logger.info('  Selected ID:', selectedId);
+    Logger.info('  Include empty:', includeEmpty);
 
     let html = '';
 
@@ -472,10 +484,10 @@ export function getCategoryOptionsHTML(selectedId = null, includeEmpty = true, c
     categories.forEach(cat => {
         const selected = cat.id === selectedId ? 'selected' : '';
         html += `<option value="${cat.id}" ${selected}>${cat.name}</option>`;
-        console.log(`  ✅ Added: ${cat.name} (${cat.id}) ${selected ? '← SELECTED' : ''}`);
+        Logger.info(`  ✅ Added: ${cat.name} (${cat.id}) ${selected ? '← SELECTED' : ''}`);
     });
 
-    console.log('  ✅ Generated', categories.length, 'category options');
+    Logger.info('  ✅ Generated', categories.length, 'category options');
     return html;
 }
 
@@ -487,13 +499,13 @@ export function getCategoryOptionsHTML(selectedId = null, includeEmpty = true, c
  */
 export async function populateCategorySelectAsync(selectElement, selectedId = null, includeEmpty = true) {
     if (!selectElement) {
-        console.error('Cannot populate category select: element not found');
+        Logger.error('Cannot populate category select: element not found');
         return;
     }
 
     const categories = await getAllCategories();
     selectElement.innerHTML = getCategoryOptionsHTML(selectedId, includeEmpty, categories);
-    console.log('✅ Populated category select with', selectElement.options.length, 'options');
+    Logger.success(' Populated category select with', selectElement.options.length, 'options');
 }
 
 /**
@@ -505,10 +517,10 @@ export async function populateCategorySelectAsync(selectElement, selectedId = nu
  */
 export function populateCategorySelect(selectElement, selectedId = null, includeEmpty = true) {
     if (!selectElement) {
-        console.error('Cannot populate category select: element not found');
+        Logger.error('Cannot populate category select: element not found');
         return;
     }
 
     selectElement.innerHTML = getCategoryOptionsHTML(selectedId, includeEmpty);
-    console.log('✅ Populated category select with', selectElement.options.length, 'options');
+    Logger.success(' Populated category select with', selectElement.options.length, 'options');
 }

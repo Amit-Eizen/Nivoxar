@@ -1,16 +1,16 @@
 // SharedTasksPage.js
 import { initNavbar } from '../scripts/components/Navbar.js';
+import Logger from '../utils/Logger.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
 import { getMySharedTasks, getSharedTaskByTaskId, getAllParticipants, isOwner,
-         leaveSharedTask, unshareTask, addParticipants, removeParticipant } from '../services/SharedTasksService.js';
+         leaveSharedTask, unshareTask, addParticipants, removeParticipant, updateParticipantPermissions } from '../services/SharedTasksService.js';
 import { getAllNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../services/NotificationsService.js';
 import { getAllFriends } from '../services/FriendsService.js';
-import { STORAGE_KEYS } from '../utils/StorageKeys.js';
+import { router } from '../scripts/core/Router.js';
 
 // Page State
 const pageState = {
     sharedTasks: [],
-    allTasks: [],
     filteredTasks: [],
     currentFilter: 'all',
     currentTaskId: null,
@@ -19,7 +19,7 @@ const pageState = {
 
 // ===== INITIALIZATION =====
 function initializeSharedTasksPage() {
-    console.log('🚀 Initializing Shared Tasks Page...');
+    Logger.debug('🚀 Initializing Shared Tasks Page...');
 
     // Check authentication
     const currentUser = requireAuth();
@@ -38,7 +38,7 @@ function initializeSharedTasksPage() {
     // Load data
     loadSharedTasks();
 
-    console.log('✅ Shared Tasks Page initialized');
+    Logger.success(' Shared Tasks Page initialized');
 }
 
 // ===== LOAD SHARED TASKS =====
@@ -46,11 +46,7 @@ async function loadSharedTasks() {
     showLoading();
 
     try {
-        // Get all tasks from localStorage
-        const allTasks = JSON.parse(localStorage.getItem(STORAGE_KEYS.TASKS) || '[]');
-        pageState.allTasks = allTasks;
-
-        // Get shared tasks
+        // Get shared tasks (includes full task data in each sharedTask.task)
         pageState.sharedTasks = await getMySharedTasks();
 
         // Filter tasks
@@ -64,7 +60,7 @@ async function loadSharedTasks() {
 
         hideLoading();
     } catch (error) {
-        console.error('❌ Error loading shared tasks:', error);
+        Logger.error(' Error loading shared tasks:', error);
         showError('Failed to load shared tasks');
         hideLoading();
     }
@@ -83,7 +79,7 @@ function applyFilter(filter) {
         case 'participating':
             pageState.filteredTasks = pageState.sharedTasks.filter(st =>
                 st.ownerId !== currentUserId &&
-                st.sharedWith.some(p => p.userId === currentUserId)
+                st.participants.some(p => p.userId === currentUserId)
             );
             break;
         case 'all':
@@ -109,7 +105,7 @@ function applySearch(query) {
     const searchTerm = query.toLowerCase();
 
     pageState.filteredTasks = pageState.filteredTasks.filter(st => {
-        const task = pageState.allTasks.find(t => t.id === st.taskId);
+        const task = st.task;
         if (!task) return false;
 
         return (
@@ -135,11 +131,12 @@ function renderSharedTasks() {
     emptyState.style.display = 'none';
 
     container.innerHTML = pageState.filteredTasks.map(sharedTask => {
-        const task = pageState.allTasks.find(t => t.id === sharedTask.taskId);
+        // Use the task data from the sharedTask object (returned by API)
+        const task = sharedTask.task;
         if (!task) return '';
 
-        const isTaskOwner = sharedTask.ownerId === pageState.currentUser.id;
-        const participantCount = sharedTask.sharedWith.length + 1; // +1 for owner
+        const isTaskOwner = sharedTask.ownerId === pageState.currentUser.id || sharedTask.isOwner;
+        const participantCount = sharedTask.participants.length + 1; // +1 for owner
         const completionPercentage = calculateCompletionPercentage(task);
 
         return `
@@ -216,7 +213,7 @@ function updateStats() {
     // Calculate unique collaborators
     const collaboratorsSet = new Set();
     pageState.sharedTasks.forEach(st => {
-        st.sharedWith.forEach(p => collaboratorsSet.add(p.userId));
+        st.participants.forEach(p => collaboratorsSet.add(p.userId));
         if (st.ownerId !== pageState.currentUser.id) {
             collaboratorsSet.add(st.ownerId);
         }
@@ -232,18 +229,19 @@ function updateStats() {
 async function openTaskDetails(taskId) {
     pageState.currentTaskId = taskId;
 
-    const task = pageState.allTasks.find(t => t.id === taskId);
     const sharedTask = await getSharedTaskByTaskId(taskId);
 
-    if (!task || !sharedTask) {
+    if (!sharedTask || !sharedTask.task) {
         showError('Task not found');
         return;
     }
 
+    const task = sharedTask.task;
+
     // Populate modal
     document.getElementById('modalTaskTitle').textContent = task.title;
     document.getElementById('taskOwner').textContent = sharedTask.ownerUsername;
-    document.getElementById('taskCategory').textContent = task.category || 'Uncategorized';
+    document.getElementById('taskCategory').textContent = task.category?.name || 'Uncategorized';
     document.getElementById('taskPriority').innerHTML = `<span class="priority-badge priority-${task.priority}">${getPriorityLabel(task.priority)}</span>`;
     document.getElementById('taskDueDate').textContent = task.dueDate ? formatDate(task.dueDate) : 'No due date';
     document.getElementById('taskLastEdited').textContent = `${sharedTask.lastEditedBy} • ${formatTimeAgo(sharedTask.updatedAt)}`;
@@ -290,18 +288,24 @@ function renderCollaborators(participants) {
 
     countElement.textContent = participants.length;
 
-    container.innerHTML = participants.map(p => `
-        <div class="collaborator-item">
-            <div class="collaborator-avatar">
-                <i class="fas fa-user-circle"></i>
+    container.innerHTML = participants.map(p => {
+        const avatarHtml = p.profilePicture
+            ? `<img src="${p.profilePicture}" alt="${p.username}" class="collaborator-avatar-img">`
+            : `<i class="fas fa-user-circle"></i>`;
+
+        return `
+            <div class="collaborator-item">
+                <div class="collaborator-avatar">
+                    ${avatarHtml}
+                </div>
+                <div class="collaborator-info">
+                    <span class="collaborator-name">${p.username}</span>
+                    <span class="collaborator-role">${p.role === 'owner' ? 'Owner' : 'Editor'}</span>
+                </div>
+                ${p.role === 'owner' ? '<i class="fas fa-crown role-icon"></i>' : ''}
             </div>
-            <div class="collaborator-info">
-                <span class="collaborator-name">${p.username}</span>
-                <span class="collaborator-role">${p.role === 'owner' ? 'Owner' : 'Editor'}</span>
-            </div>
-            ${p.role === 'owner' ? '<i class="fas fa-crown role-icon"></i>' : ''}
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // ===== MANAGE PARTICIPANTS =====
@@ -312,13 +316,13 @@ async function openManageParticipants() {
     if (!sharedTask) return;
 
     // Load friends
-    const friends = getAllFriends();
+    const friends = await getAllFriends();
     const friendsSelect = document.getElementById('friendsSelect');
 
     // Filter out users already in the task
     const existingUserIds = [
         sharedTask.ownerId,
-        ...sharedTask.sharedWith.map(p => p.userId)
+        ...sharedTask.participants.map(p => p.userId)
     ];
 
     const availableFriends = friends.filter(f => {
@@ -347,20 +351,114 @@ async function renderCurrentParticipants(sharedTask) {
 
     const participants = await getAllParticipants(sharedTask.taskId);
 
-    container.innerHTML = participants.map(p => `
-        <div class="participant-item">
-            <div class="participant-info">
-                <i class="fas fa-user-circle"></i>
-                <span>${p.username}</span>
-                ${p.role === 'owner' ? '<span class="owner-badge"><i class="fas fa-crown"></i></span>' : ''}
+    container.innerHTML = participants.map(p => {
+        const avatarHtml = p.profilePicture
+            ? `<img src="${p.profilePicture}" alt="${p.username}" class="participant-avatar-img">`
+            : `<i class="fas fa-user-circle"></i>`;
+
+        const isOwner = p.role === 'owner';
+
+        return `
+            <div class="participant-item-extended" data-participant-id="${p.userId}">
+                <div class="participant-header" ${isTaskOwner && !isOwner ? `onclick="window.sharedTasksPage.toggleParticipantPermissions('${p.userId}')" style="cursor: pointer;"` : ''}>
+                    <div class="participant-info">
+                        <div class="participant-avatar">
+                            ${avatarHtml}
+                        </div>
+                        <span class="participant-name">${p.username}</span>
+                        ${isOwner ? '<span class="owner-badge"><i class="fas fa-crown"></i> Owner</span>' : ''}
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        ${isTaskOwner && !isOwner ? `
+                            <i class="fas fa-chevron-down participant-expand-icon" data-participant-id="${p.userId}"></i>
+                            <button class="btn-icon btn-danger" onclick="event.stopPropagation(); window.sharedTasksPage.handleRemoveParticipant('${p.userId}')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+                ${isTaskOwner && !isOwner ? `
+                    <div class="participant-permissions" data-permissions-for="${p.userId}" style="display: none;">
+                        <label class="permission-checkbox">
+                            <input type="checkbox"
+                                data-user-id="${p.userId}"
+                                data-permission="canEdit"
+                                ${sharedTask.permissions.canEdit ? 'checked' : ''}
+                                onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canEdit', this.checked)">
+                            <span><i class="fas fa-edit"></i> Can Edit</span>
+                        </label>
+                        <label class="permission-checkbox">
+                            <input type="checkbox"
+                                data-user-id="${p.userId}"
+                                data-permission="canAddSubtasks"
+                                ${sharedTask.permissions.canAddSubtasks ? 'checked' : ''}
+                                onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canAddSubtasks', this.checked)">
+                            <span><i class="fas fa-list-check"></i> Can Add Subtasks</span>
+                        </label>
+                        <label class="permission-checkbox">
+                            <input type="checkbox"
+                                data-user-id="${p.userId}"
+                                data-permission="canShare"
+                                ${sharedTask.permissions.canShare ? 'checked' : ''}
+                                onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canShare', this.checked)">
+                            <span><i class="fas fa-share-nodes"></i> Can Share</span>
+                        </label>
+                        <label class="permission-checkbox">
+                            <input type="checkbox"
+                                data-user-id="${p.userId}"
+                                data-permission="canDelete"
+                                ${sharedTask.permissions.canDelete ? 'checked' : ''}
+                                onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canDelete', this.checked)">
+                            <span><i class="fas fa-trash"></i> Can Delete</span>
+                        </label>
+                    </div>
+                ` : ''}
             </div>
-            ${isTaskOwner && p.role !== 'owner' ? `
-                <button class="btn-icon btn-danger" onclick="window.sharedTasksPage.handleRemoveParticipant(${p.userId})">
-                    <i class="fas fa-times"></i>
-                </button>
-            ` : ''}
-        </div>
-    `).join('');
+        `;
+    }).join('');
+}
+
+// ===== TOGGLE PARTICIPANT PERMISSIONS =====
+function toggleParticipantPermissions(userId) {
+    const permissionsDiv = document.querySelector(`[data-permissions-for="${userId}"]`);
+    const expandIcon = document.querySelector(`.participant-expand-icon[data-participant-id="${userId}"]`);
+
+    if (!permissionsDiv) return;
+
+    const isHidden = permissionsDiv.style.display === 'none';
+
+    if (isHidden) {
+        permissionsDiv.style.display = 'grid';
+        if (expandIcon) expandIcon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+    } else {
+        permissionsDiv.style.display = 'none';
+        if (expandIcon) expandIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+    }
+}
+
+// ===== HANDLE PERMISSION CHANGE =====
+async function handlePermissionChange(userId, permission, value) {
+    const taskId = pageState.currentTaskId;
+
+    try {
+        // Call API to update permission
+        await updateParticipantPermissions(taskId, {
+            [permission]: value
+        });
+
+        showSuccess(`Permission ${value ? 'granted' : 'revoked'} successfully`);
+
+        // Refresh the participants list
+        const sharedTask = await getSharedTaskByTaskId(taskId);
+        await renderCurrentParticipants(sharedTask);
+    } catch (error) {
+        Logger.error(' Error updating permission:', error);
+        showError('Failed to update permission: ' + error.message);
+
+        // Revert checkbox on error
+        const checkbox = document.querySelector(`input[data-user-id="${userId}"][data-permission="${permission}"]`);
+        if (checkbox) checkbox.checked = !value;
+    }
 }
 
 // ===== ADD PARTICIPANT =====
@@ -384,7 +482,7 @@ async function handleAddParticipant() {
         await loadSharedTasks();
         await openManageParticipants();
     } catch (error) {
-        console.error('❌ Error adding participant:', error);
+        Logger.error(' Error adding participant:', error);
         showError(error.message);
     }
 }
@@ -403,7 +501,7 @@ async function handleRemoveParticipant(userId) {
         await loadSharedTasks();
         await openManageParticipants();
     } catch (error) {
-        console.error('❌ Error removing participant:', error);
+        Logger.error(' Error removing participant:', error);
         showError(error.message);
     }
 }
@@ -422,7 +520,7 @@ async function handleLeaveTask() {
         closeTaskDetailsModal();
         await loadSharedTasks();
     } catch (error) {
-        console.error('❌ Error leaving task:', error);
+        Logger.error(' Error leaving task:', error);
         showError(error.message);
     }
 }
@@ -441,7 +539,7 @@ async function handleUnshareTask() {
         closeTaskDetailsModal();
         await loadSharedTasks();
     } catch (error) {
-        console.error('❌ Error unsharing task:', error);
+        Logger.error(' Error unsharing task:', error);
         showError(error.message);
     }
 }
@@ -503,11 +601,13 @@ function initNotificationsPopup() {
         });
     }
 
-    document.addEventListener('click', (e) => {
+    // Store handler for cleanup
+    notificationPopupClickHandler = (e) => {
         if (!popup.contains(e.target) && !notificationBtn.contains(e.target)) {
             popup.style.display = 'none';
         }
-    });
+    };
+    document.addEventListener('click', notificationPopupClickHandler);
 }
 
 function loadNotificationsPopup() {
@@ -645,7 +745,7 @@ function hideError() {
 
 function showSuccess(message) {
     // You can implement a success toast here
-    console.log('✅', message);
+    Logger.success('', message);
     alert(message);
 }
 
@@ -689,7 +789,9 @@ function calculateCompletionPercentage(task) {
 window.sharedTasksPage = {
     openTaskDetails,
     handleNotificationClick,
-    handleRemoveParticipant
+    handleRemoveParticipant,
+    handlePermissionChange,
+    toggleParticipantPermissions
 };
 
 // ===== INITIALIZE ON DOM READY =====
@@ -700,11 +802,35 @@ if (!window.__SPA_MODE__) {
 
 // ===== SPA MODE =====
 
+// Store event listeners for cleanup
+let notificationPopupClickHandler = null;
+
+/**
+ * Cleanup function to remove event listeners and prevent memory leaks
+ */
+export function cleanupSharedTasksPage() {
+    Logger.debug('🧹 Cleaning up Shared Tasks Page...');
+
+    // Remove notification popup click listener
+    if (notificationPopupClickHandler) {
+        document.removeEventListener('click', notificationPopupClickHandler);
+        notificationPopupClickHandler = null;
+    }
+
+    // Remove notification popup from DOM
+    const notificationPopup = document.getElementById('notificationsPopup');
+    if (notificationPopup) {
+        notificationPopup.remove();
+    }
+
+    Logger.debug('✅ Shared Tasks Page cleaned up');
+}
+
 /**
  * Load Shared Tasks page for SPA
  */
 export async function loadSharedTasksPage() {
-    console.log('📄 Loading Shared Tasks Page...');
+    Logger.debug('📄 Loading Shared Tasks Page...');
 
     // Load CSS
     loadPageCSS();
@@ -712,12 +838,15 @@ export async function loadSharedTasksPage() {
     // Get app container
     const app = document.getElementById('app');
     if (!app) {
-        console.error('App container not found');
+        Logger.error('App container not found');
         return;
     }
 
     // Inject HTML
     app.innerHTML = getPageHTML();
+
+    // Register cleanup function with router
+    router.registerPageCleanup(cleanupSharedTasksPage);
 
     // Initialize Shared Tasks
     initializeSharedTasksPage();

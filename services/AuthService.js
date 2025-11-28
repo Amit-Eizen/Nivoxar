@@ -3,6 +3,7 @@
 
 import { STORAGE_KEYS } from '../utils/StorageKeys.js';
 import { CONFIG } from '../config.js';
+import Logger from '../utils/Logger.js';
 
 // API Configuration
 const API_BASE_URL = CONFIG.API_BASE_URL;
@@ -94,10 +95,23 @@ async function apiRequest(endpoint, options = {}) {
 
     if (!response.ok) {
         const error = await response.json().catch(() => ({ message: 'Request failed' }));
+        console.error(`[API ERROR] ${options.method || 'GET'} ${endpoint} - Status: ${response.status}`, error);
         throw new Error(error.message || `HTTP ${response.status}`);
     }
 
-    return response.json();
+    // Handle 204 No Content responses (e.g., DELETE requests)
+    if (response.status === 204) {
+        return {};
+    }
+
+    // Check if there's content to parse
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+        return response.json();
+    }
+
+    // Return empty object for responses without JSON content
+    return {};
 }
 
 // ===== LOGIN =====
@@ -119,10 +133,10 @@ export async function login(email, password) {
         setToken(data.token);
         setCurrentUser(data.user);
 
-        console.log('✅ Login successful:', data.user.name);
+        Logger.success('Login successful:', data.user.name);
         return { success: true, user: data.user };
     } catch (error) {
-        console.error('❌ Login failed:', error);
+        Logger.error('Login failed:', error);
         return { success: false, error: error.message };
     }
 }
@@ -141,10 +155,10 @@ export async function sendVerificationCode(email) {
             body: JSON.stringify({ email })
         });
 
-        console.log('✅ Verification code sent:', data.message);
+        Logger.success('Verification code sent:', data.message);
         return { success: true, message: data.message };
     } catch (error) {
-        console.error('❌ Failed to send verification code:', error);
+        Logger.error('Failed to send verification code:', error);
         return { success: false, error: error.message };
     }
 }
@@ -162,10 +176,10 @@ export async function verifyEmailCode(email, code) {
             body: JSON.stringify({ email, code })
         });
 
-        console.log('✅ Email verified:', data.message);
+        Logger.success('Email verified:', data.message);
         return { success: true, verified: data.verified };
     } catch (error) {
-        console.error('❌ Email verification failed:', error);
+        Logger.error('Email verification failed:', error);
         return { success: false, error: error.message };
     }
 }
@@ -182,10 +196,10 @@ export async function forgotPassword(email) {
             body: JSON.stringify({ email })
         });
 
-        console.log('✅ Password reset code sent:', data.message);
+        Logger.success('Password reset code sent:', data.message);
         return { success: true, message: data.message };
     } catch (error) {
-        console.error('❌ Failed to send password reset code:', error);
+        Logger.error('Failed to send password reset code:', error);
         return { success: false, error: error.message };
     }
 }
@@ -204,10 +218,10 @@ export async function resetPassword(email, code, newPassword) {
             body: JSON.stringify({ email, code, newPassword })
         });
 
-        console.log('✅ Password reset successful:', data.message);
+        Logger.success('Password reset successful:', data.message);
         return { success: true, message: data.message };
     } catch (error) {
-        console.error('❌ Password reset failed:', error);
+        Logger.error('Password reset failed:', error);
         return { success: false, error: error.message };
     }
 }
@@ -234,15 +248,36 @@ export async function register(userData) {
         setToken(data.token);
         setCurrentUser(data.user);
 
-        console.log('✅ Registration successful:', data.user.name);
+        Logger.success('Registration successful:', data.user.name);
         return { success: true, user: data.user };
     } catch (error) {
-        console.error('❌ Registration failed:', error);
+        Logger.error('Registration failed:', error);
         return { success: false, error: error.message };
     }
 }
 
 // ===== LOGOUT =====
+
+/**
+ * Clear all user-related data from localStorage
+ */
+function clearAllUserData() {
+    // Clear all user-related data from localStorage
+    Object.values(STORAGE_KEYS).forEach(key => {
+        localStorage.removeItem(key);
+    });
+
+    // Also clear any other keys that might be related to the user
+    // This ensures a clean slate for the next user
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('nivoxar_')) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+}
 
 /**
  * Logout current user
@@ -251,7 +286,8 @@ export async function register(userData) {
 export function logout(redirectToLogin = true) {
     clearToken();
     clearCurrentUser();
-    console.log('✅ Logout successful');
+    clearAllUserData(); // Clear ALL user data
+    Logger.success('Logout successful - all user data cleared');
 
     if (redirectToLogin) {
         if (window.__SPA_MODE__) {
@@ -276,7 +312,7 @@ export function checkAuth() {
 
     // If not logged in and not on login page
     if (!currentUser && !currentPath.includes('LoginPage.html') && currentPath !== '/login') {
-        console.log('❌ Not authenticated, redirecting to login...');
+        Logger.warn('Not authenticated, redirecting to login...');
         if (window.__SPA_MODE__) {
             import('../scripts/core/Router.js').then(({ router }) => {
                 router.navigate('/login', true);
@@ -289,7 +325,7 @@ export function checkAuth() {
 
     // If logged in and on login page, redirect to dashboard
     if (currentUser && (currentPath.includes('LoginPage.html') || currentPath === '/login')) {
-        console.log('✅ Already logged in, redirecting to dashboard...');
+        Logger.info('Already logged in, redirecting to dashboard...');
         if (window.__SPA_MODE__) {
             import('../scripts/core/Router.js').then(({ router }) => {
                 router.navigate('/dashboard', true);
@@ -309,7 +345,7 @@ export function checkAuth() {
  */
 export function requireAuth() {
     if (!isAuthenticated()) {
-        console.log('❌ Authentication required, redirecting to login...');
+        Logger.warn('Authentication required, redirecting to login...');
         if (window.__SPA_MODE__) {
             import('../scripts/core/Router.js').then(({ router }) => {
                 router.navigate('/login', true);
@@ -329,7 +365,7 @@ export function requireAuth() {
 export function checkIfLoggedIn() {
     const currentUser = getCurrentUser();
     if (currentUser) {
-        console.log('✅ User already logged in, redirecting to dashboard...');
+        Logger.info('User already logged in, redirecting to dashboard...');
         if (window.__SPA_MODE__) {
             import('../scripts/core/Router.js').then(({ router }) => {
                 router.navigate('/dashboard', true);
@@ -354,10 +390,10 @@ export async function getCurrentUserProfile() {
             method: 'GET'
         });
 
-        console.log('✅ User profile fetched');
+        Logger.success('User profile fetched');
         return response;
     } catch (error) {
-        console.error('❌ Error fetching user profile:', error);
+        Logger.error('Error fetching user profile:', error);
         throw error;
     }
 }
@@ -379,7 +415,7 @@ export async function updateUserProfile(profileData) {
             body: JSON.stringify(payload)
         });
 
-        console.log('✅ User profile updated');
+        Logger.success('User profile updated');
 
         // Update current user in localStorage
         const currentUser = getCurrentUser();
@@ -390,7 +426,7 @@ export async function updateUserProfile(profileData) {
 
         return response;
     } catch (error) {
-        console.error('❌ Error updating user profile:', error);
+        Logger.error('Error updating user profile:', error);
         throw error;
     }
 }
@@ -407,7 +443,7 @@ export async function updateProfilePicture(profilePicture) {
             body: JSON.stringify({ ProfilePicture: profilePicture })  // Capital P to match C# model
         });
 
-        console.log('✅ Profile picture updated');
+        Logger.success('Profile picture updated');
 
         // Update current user in localStorage
         const currentUser = getCurrentUser();
@@ -418,7 +454,7 @@ export async function updateProfilePicture(profilePicture) {
 
         return response;
     } catch (error) {
-        console.error('❌ Error updating profile picture:', error);
+        Logger.error('Error updating profile picture:', error);
         throw error;
     }
 }
@@ -435,7 +471,7 @@ export async function updateUserName(name) {
             body: JSON.stringify({ Name: name })  // Capital N to match C# model
         });
 
-        console.log('✅ User name updated');
+        Logger.success('User name updated');
 
         // Update current user in localStorage
         const currentUser = getCurrentUser();
@@ -446,7 +482,7 @@ export async function updateUserName(name) {
 
         return response;
     } catch (error) {
-        console.error('❌ Error updating user name:', error);
+        Logger.error('Error updating user name:', error);
         throw error;
     }
 }
@@ -467,11 +503,55 @@ export async function changePassword(currentPassword, newPassword) {
             })
         });
 
-        console.log('✅ Password changed successfully');
+        Logger.success('Password changed successfully');
         return response;
     } catch (error) {
-        console.error('❌ Error changing password:', error);
+        Logger.error('Error changing password:', error);
         throw error;
+    }
+}
+
+/**
+ * Search users by name
+ * @param {string} query - Search query (minimum 2 characters)
+ * @returns {Promise<Array>} Array of matching users
+ */
+export async function searchUsers(query) {
+    try {
+        if (!query || query.length < 2) {
+            return [];
+        }
+
+        const response = await apiRequest(`/users/search?query=${encodeURIComponent(query)}`, {
+            method: 'GET'
+        });
+
+        return response.users || [];
+    } catch (error) {
+        Logger.error('Error searching users:', error);
+        return [];
+    }
+}
+
+/**
+ * Check if username is available
+ * @param {string} name - Username to check
+ * @returns {Promise<boolean>} True if name is available
+ */
+export async function checkNameAvailability(name) {
+    try {
+        if (!name) {
+            return false;
+        }
+
+        const response = await apiRequest(`/users/check-name?name=${encodeURIComponent(name)}`, {
+            method: 'GET'
+        });
+
+        return response.available;
+    } catch (error) {
+        Logger.error('Error checking name availability:', error);
+        return false;
     }
 }
 
