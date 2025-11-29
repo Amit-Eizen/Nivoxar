@@ -66,7 +66,7 @@ export async function createTask(taskData) {
         // Add subtasks if they exist
         if (taskData.subTasks && taskData.subTasks.length > 0) {
             payload.subTasks = taskData.subTasks.map(st => ({
-                title: st.title,
+                title: st.text || st.title,  // Support both 'text' (temp) and 'title' (API)
                 completed: st.completed || false
             }));
         }

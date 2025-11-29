@@ -96,7 +96,10 @@ async function apiRequest(endpoint, options = {}) {
     if (!response.ok) {
         const error = await response.json().catch(() => ({ message: 'Request failed' }));
         console.error(`[API ERROR] ${options.method || 'GET'} ${endpoint} - Status: ${response.status}`, error);
-        throw new Error(error.message || `HTTP ${response.status}`);
+        // Create custom error with full data
+        const customError = new Error(error.message || `HTTP ${response.status}`);
+        customError.data = error;  // Attach full error data
+        throw customError;
     }
 
     // Handle 204 No Content responses (e.g., DELETE requests)
@@ -252,7 +255,11 @@ export async function register(userData) {
         return { success: true, user: data.user };
     } catch (error) {
         Logger.error('Registration failed:', error);
-        return { success: false, error: error.message };
+        return {
+            success: false,
+            error: error.message,
+            errorData: error.data  // Include full error data (suggestions, etc.)
+        };
     }
 }
 

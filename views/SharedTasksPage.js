@@ -2,8 +2,9 @@
 import { initNavbar } from '../scripts/components/Navbar.js';
 import Logger from '../utils/Logger.js';
 import { requireAuth } from '../middleware/AuthMiddleware.js';
+import { apiRequest } from '../services/AuthService.js';
 import { getMySharedTasks, getSharedTaskByTaskId, getAllParticipants, isOwner,
-         leaveSharedTask, unshareTask, addParticipants, removeParticipant, updateParticipantPermissions } from '../services/SharedTasksService.js';
+         leaveSharedTask, unshareTask, addParticipants, removeParticipant } from '../services/SharedTasksService.js';
 import { getAllNotifications, getUnreadCount, markAsRead, markAllAsRead } from '../services/NotificationsService.js';
 import { getAllFriends } from '../services/FriendsService.js';
 import { router } from '../scripts/core/Router.js';
@@ -136,7 +137,7 @@ function renderSharedTasks() {
         if (!task) return '';
 
         const isTaskOwner = sharedTask.ownerId === pageState.currentUser.id || sharedTask.isOwner;
-        const participantCount = sharedTask.participants.length + 1; // +1 for owner
+        const participantCount = sharedTask.participants.length; // Backend already includes owner
         const completionPercentage = calculateCompletionPercentage(task);
 
         return `
@@ -383,7 +384,7 @@ async function renderCurrentParticipants(sharedTask) {
                             <input type="checkbox"
                                 data-user-id="${p.userId}"
                                 data-permission="canEdit"
-                                ${sharedTask.permissions.canEdit ? 'checked' : ''}
+                                ${p.canEdit ? 'checked' : ''}
                                 onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canEdit', this.checked)">
                             <span><i class="fas fa-edit"></i> Can Edit</span>
                         </label>
@@ -391,7 +392,7 @@ async function renderCurrentParticipants(sharedTask) {
                             <input type="checkbox"
                                 data-user-id="${p.userId}"
                                 data-permission="canAddSubtasks"
-                                ${sharedTask.permissions.canAddSubtasks ? 'checked' : ''}
+                                ${p.canAddSubtasks ? 'checked' : ''}
                                 onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canAddSubtasks', this.checked)">
                             <span><i class="fas fa-list-check"></i> Can Add Subtasks</span>
                         </label>
@@ -399,7 +400,7 @@ async function renderCurrentParticipants(sharedTask) {
                             <input type="checkbox"
                                 data-user-id="${p.userId}"
                                 data-permission="canShare"
-                                ${sharedTask.permissions.canShare ? 'checked' : ''}
+                                ${p.canShare ? 'checked' : ''}
                                 onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canShare', this.checked)">
                             <span><i class="fas fa-share-nodes"></i> Can Share</span>
                         </label>
@@ -407,7 +408,7 @@ async function renderCurrentParticipants(sharedTask) {
                             <input type="checkbox"
                                 data-user-id="${p.userId}"
                                 data-permission="canDelete"
-                                ${sharedTask.permissions.canDelete ? 'checked' : ''}
+                                ${p.canDelete ? 'checked' : ''}
                                 onchange="window.sharedTasksPage.handlePermissionChange('${p.userId}', 'canDelete', this.checked)">
                             <span><i class="fas fa-trash"></i> Can Delete</span>
                         </label>
@@ -439,20 +440,48 @@ function toggleParticipantPermissions(userId) {
 // ===== HANDLE PERMISSION CHANGE =====
 async function handlePermissionChange(userId, permission, value) {
     const taskId = pageState.currentTaskId;
+    const sharedTask = pageState.sharedTasks.find(t => t.taskId === taskId);
+
+    if (!sharedTask) {
+        showError('Shared task not found');
+        Logger.error('Shared task not found. taskId:', taskId);
+        return;
+    }
 
     try {
-        // Call API to update permission
-        await updateParticipantPermissions(taskId, {
-            [permission]: value
+        // Build permissions object with PascalCase for C# API
+        const permissions = {};
+
+        // Convert permission name to PascalCase
+        if (permission === 'canEdit') {
+            permissions.CanEdit = value;
+        } else if (permission === 'canAddSubtasks') {
+            permissions.CanAddSubtasks = value;
+        } else if (permission === 'canShare') {
+            permissions.CanShare = value;
+        } else if (permission === 'canDelete') {
+            permissions.CanDelete = value;
+        }
+
+        // Call API to update participant permissions
+        await apiRequest(`/sharedtasks/${sharedTask.id}/participants/${userId}/permissions`, {
+            method: 'PUT',
+            body: JSON.stringify(permissions)
         });
 
-        showSuccess(`Permission ${value ? 'granted' : 'revoked'} successfully`);
+        // Refresh the participants list to show updated permissions
+        const updatedSharedTask = await getSharedTaskByTaskId(taskId);
+        await renderCurrentParticipants(updatedSharedTask);
 
-        // Refresh the participants list
-        const sharedTask = await getSharedTaskByTaskId(taskId);
-        await renderCurrentParticipants(sharedTask);
+        // Re-expand the permissions for this user after refresh
+        const permissionsDiv = document.querySelector(`[data-permissions-for="${userId}"]`);
+        const expandIcon = document.querySelector(`.participant-expand-icon[data-participant-id="${userId}"]`);
+        if (permissionsDiv && expandIcon) {
+            permissionsDiv.style.display = 'grid';
+            expandIcon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+        }
     } catch (error) {
-        Logger.error(' Error updating permission:', error);
+        Logger.error('Error updating permission:', error);
         showError('Failed to update permission: ' + error.message);
 
         // Revert checkbox on error
@@ -464,7 +493,7 @@ async function handlePermissionChange(userId, permission, value) {
 // ===== ADD PARTICIPANT =====
 async function handleAddParticipant() {
     const friendsSelect = document.getElementById('friendsSelect');
-    const selectedUserId = parseInt(friendsSelect.value);
+    const selectedUserId = friendsSelect.value;  // Keep as string, don't convert to int
 
     if (!selectedUserId) {
         showError('Please select a friend');
@@ -472,10 +501,15 @@ async function handleAddParticipant() {
     }
 
     const taskId = pageState.currentTaskId;
-    const task = pageState.allTasks.find(t => t.id === taskId);
+    const sharedTask = pageState.sharedTasks.find(t => t.taskId === taskId);
+
+    if (!sharedTask) {
+        showError('Task not found');
+        return;
+    }
 
     try {
-        await addParticipants(taskId, task.title, [selectedUserId]);
+        await addParticipants(sharedTask.id, [selectedUserId]);
         showSuccess('Participant added successfully');
 
         // Refresh
@@ -492,9 +526,15 @@ async function handleRemoveParticipant(userId) {
     if (!confirm('Remove this participant?')) return;
 
     const taskId = pageState.currentTaskId;
+    const sharedTask = pageState.sharedTasks.find(t => t.taskId === taskId);
+
+    if (!sharedTask) {
+        showError('Shared task not found');
+        return;
+    }
 
     try {
-        await removeParticipant(taskId, userId);
+        await removeParticipant(sharedTask.id, userId);  // Use sharedTask.id, not taskId
         showSuccess('Participant removed');
 
         // Refresh

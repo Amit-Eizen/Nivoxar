@@ -236,11 +236,42 @@ namespace Nivoxar.Controllers
             }
 
             // Create new user
+            // Generate a clean username (no spaces or special chars) from the display name
+            var displayName = request.Name ?? request.Email.Split('@')[0];
+            var cleanUsername = new string(displayName.Where(c => char.IsLetterOrDigit(c)).ToArray());
+            if (string.IsNullOrWhiteSpace(cleanUsername))
+            {
+                cleanUsername = request.Email.Split('@')[0];
+            }
+
+            // Check if username already exists
+            var usernameExists = await _userManager.FindByNameAsync(cleanUsername) != null;
+
+            if (usernameExists)
+            {
+                // Generate alternative suggestions
+                var random = new Random();
+                var suggestions = new List<string>();
+
+                for (int i = 0; i < 3; i++)
+                {
+                    var randomSuffix = random.Next(100, 9999);
+                    var suggestedName = $"{displayName} {randomSuffix}";
+                    suggestions.Add(suggestedName);
+                }
+
+                return BadRequest(new {
+                    message = "This name is already taken.",
+                    nameTaken = true,
+                    suggestions = suggestions
+                });
+            }
+
             var user = new User
             {
-                UserName = request.Email,
+                UserName = cleanUsername,  // Clean username for Identity (no spaces)
                 Email = request.Email,
-                Name = request.Name ?? request.Email.Split('@')[0],
+                Name = displayName,  // Display name (can have spaces, may include number if modified)
                 CreatedAt = DateTime.UtcNow,
                 LastLoginAt = DateTime.UtcNow  // Set on registration
             };

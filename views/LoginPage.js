@@ -2,6 +2,65 @@
 import { checkIfLoggedIn, login, register, sendVerificationCode, verifyEmailCode } from '../services/AuthService.js';
 import Logger from '../utils/Logger.js';
 
+/**
+ * Show username suggestions popup when name is already taken
+ * @param {Array<string>} suggestions - Array of suggested usernames
+ * @param {HTMLElement} nameInput - The name input field to update
+ */
+function showNameSuggestionsPopup(suggestions, nameInput) {
+    // Create backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'name-suggestions-backdrop';
+
+    // Create popup
+    const popup = document.createElement('div');
+    popup.className = 'name-suggestions-popup';
+
+    // Popup content
+    popup.innerHTML = `
+        <h3>This name is already taken</h3>
+        <p>Here are some available alternatives:</p>
+        <div class="suggestions-list"></div>
+        <div class="suggestions-actions">
+            <button class="suggestions-cancel-btn">Cancel</button>
+        </div>
+    `;
+
+    // Add suggestion buttons
+    const suggestionsList = popup.querySelector('.suggestions-list');
+    suggestions.forEach(suggestion => {
+        const btn = document.createElement('button');
+        btn.className = 'suggestion-btn';
+        btn.textContent = suggestion;
+        btn.addEventListener('click', () => {
+            // Update name input with selected suggestion
+            if (nameInput) {
+                nameInput.value = suggestion;
+            }
+            // Close popup
+            backdrop.remove();
+        });
+        suggestionsList.appendChild(btn);
+    });
+
+    // Cancel button
+    const cancelBtn = popup.querySelector('.suggestions-cancel-btn');
+    cancelBtn.addEventListener('click', () => {
+        backdrop.remove();
+    });
+
+    // Close on backdrop click
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) {
+            backdrop.remove();
+        }
+    });
+
+    // Append popup to backdrop and backdrop to body
+    backdrop.appendChild(popup);
+    document.body.appendChild(backdrop);
+}
+
 function initializeLoginPage() {
     // Check if already logged in
     checkIfLoggedIn();
@@ -466,7 +525,72 @@ function initializeLoginPage() {
                     window.location.href = '/views/DashboardPage.html';
                 }
             } else {
-                alert(result.error);
+                // Check if this is a "name taken" error with suggestions
+                if (result.errorData?.nameTaken && result.errorData?.suggestions) {
+                    // Show suggestions popup
+                    showNameSuggestionsPopup(result.errorData.suggestions, document.getElementById('registerName'));
+                } else {
+                    // Show error below appropriate field
+                    const errorMessage = result.error || 'Registration failed';
+
+                    if (errorMessage.toLowerCase().includes('username') || errorMessage.toLowerCase().includes('name')) {
+                        // Username/Name error - show below name field
+                        const nameInput = document.getElementById('registerName');
+                        const formGroup = nameInput?.closest('.form-group') || nameInput?.parentElement;
+
+                        // Remove any existing error message
+                        const existingError = formGroup?.querySelector('.error-message');
+                        if (existingError) {
+                            existingError.remove();
+                        }
+
+                        // Create new error message
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'error-message';
+
+                        // Extract clean error message
+                        let cleanError = errorMessage;
+                        if (errorMessage.includes('Failed to create user:')) {
+                            cleanError = errorMessage.split('Failed to create user:')[1].trim();
+                        }
+                        if (errorMessage.includes('Unable to generate unique username')) {
+                            cleanError = 'This name is already taken. Please choose another name.';
+                        }
+                        errorDiv.textContent = cleanError;
+
+                        // Append error after the form group
+                        formGroup?.appendChild(errorDiv);
+                    } else if (errorMessage.toLowerCase().includes('password')) {
+                        // Password error - show below password field
+                        const passwordInput = document.getElementById('registerPasswordConfirm');
+                        // Find the form-group container
+                        const formGroup = passwordInput?.closest('.form-group') || passwordInput?.parentElement;
+
+                        // Remove any existing error message
+                        const existingError = formGroup?.querySelector('.error-message');
+                        if (existingError) {
+                            existingError.remove();
+                        }
+
+                        // Create new error message
+                        const errorDiv = document.createElement('div');
+                        errorDiv.className = 'error-message';
+
+                        // Extract clean error message
+                        let cleanError = errorMessage;
+                        if (errorMessage.includes('Failed to create user:')) {
+                            cleanError = errorMessage.split('Failed to create user:')[1].trim();
+                        }
+                        errorDiv.textContent = cleanError;
+
+                        // Append error after the form group
+                        formGroup?.appendChild(errorDiv);
+                    } else {
+                        // Generic error
+                        alert(errorMessage);
+                    }
+                }
+
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalHTML;
             }

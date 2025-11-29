@@ -189,7 +189,11 @@ namespace Nivoxar.Controllers
                         Email = sharedTaskData.Owner.Email ?? "",
                         ProfilePicture = sharedTaskData.Owner.ProfilePicture,
                         Role = "owner",
-                        AddedAt = sharedTaskData.CreatedAt
+                        AddedAt = sharedTaskData.CreatedAt,
+                        CanEdit = true,
+                        CanAddSubtasks = true,
+                        CanShare = true,
+                        CanDelete = true
                     }
                 }
                 .Concat(sharedTaskData.Participants.Select(p => new
@@ -200,15 +204,28 @@ namespace Nivoxar.Controllers
                     p.Email,
                     ProfilePicture = p.User.ProfilePicture,
                     p.Role,
-                    p.AddedAt
+                    p.AddedAt,
+                    p.CanEdit,
+                    p.CanAddSubtasks,
+                    p.CanShare,
+                    p.CanDelete
                 }))
                 .ToList(),
+                // User permissions (with owner override for their own actions)
                 Permissions = new
                 {
                     CanEdit = isOwner || sharedTaskData.CanEdit,
                     CanAddSubtasks = isOwner || sharedTaskData.CanAddSubtasks,
                     CanShare = isOwner || sharedTaskData.CanShare,
-                    CanDelete = isOwner || sharedTaskData.CanDelete  // Owner always has delete permission
+                    CanDelete = isOwner || sharedTaskData.CanDelete
+                },
+                // Base permissions (without owner override, for UI display)
+                BasePermissions = new
+                {
+                    CanEdit = sharedTaskData.CanEdit,
+                    CanAddSubtasks = sharedTaskData.CanAddSubtasks,
+                    CanShare = sharedTaskData.CanShare,
+                    CanDelete = sharedTaskData.CanDelete
                 },
                 sharedTaskData.CreatedAt,
                 sharedTaskData.UpdatedAt,
@@ -361,8 +378,12 @@ namespace Nivoxar.Controllers
                 return NotFound(new { message = "Shared task not found" });
             }
 
-            // Check permission (owner or if canShare is true)
-            if (sharedTask.OwnerId != userId && !sharedTask.CanShare)
+            // Check permission: owner OR participant with CanShare permission
+            bool isOwner = sharedTask.OwnerId == userId;
+            var participant = sharedTask.Participants.FirstOrDefault(p => p.UserId == userId);
+            bool canSharePermission = participant?.CanShare ?? false;
+
+            if (!isOwner && !canSharePermission)
             {
                 return Forbid();
             }
@@ -380,7 +401,7 @@ namespace Nivoxar.Controllers
                 var participantUser = await _context.Users.FindAsync(participantUserId);
                 if (participantUser != null)
                 {
-                    var participant = new SharedTaskParticipant
+                    var newParticipant = new SharedTaskParticipant
                     {
                         SharedTaskId = sharedTaskId,
                         UserId = participantUser.Id,
@@ -389,8 +410,8 @@ namespace Nivoxar.Controllers
                         Role = "editor",
                         AddedAt = DateTime.UtcNow
                     };
-                    newParticipants.Add(participant);
-                    _context.SharedTaskParticipants.Add(participant);
+                    newParticipants.Add(newParticipant);
+                    _context.SharedTaskParticipants.Add(newParticipant);
 
                     // Create notification
                     var notification = new Notification
@@ -467,6 +488,74 @@ namespace Nivoxar.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Participant removed successfully" });
+        }
+
+        // PUT: api/sharedtasks/{sharedTaskId}/participants/{participantUserId}/permissions - Update participant permissions
+        [HttpPut("{sharedTaskId}/participants/{participantUserId}/permissions")]
+        public async Task<IActionResult> UpdateParticipantPermissions(
+            int sharedTaskId,
+            string participantUserId,
+            [FromBody] UpdatePermissionsRequest request)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Unauthorized(new { message = "User not authenticated" });
+            }
+
+            var sharedTask = await _context.SharedTasks
+                .Include(st => st.Participants)
+                .FirstOrDefaultAsync(st => st.Id == sharedTaskId);
+
+            if (sharedTask == null)
+            {
+                return NotFound(new { message = "Shared task not found" });
+            }
+
+            // Only owner can update participant permissions
+            if (sharedTask.OwnerId != userId)
+            {
+                return Forbid();
+            }
+
+            var participant = sharedTask.Participants.FirstOrDefault(p => p.UserId == participantUserId);
+            if (participant == null)
+            {
+                return NotFound(new { message = "Participant not found" });
+            }
+
+            // Update permissions
+            if (request.CanEdit.HasValue)
+                participant.CanEdit = request.CanEdit.Value;
+
+            if (request.CanAddSubtasks.HasValue)
+                participant.CanAddSubtasks = request.CanAddSubtasks.Value;
+
+            if (request.CanShare.HasValue)
+                participant.CanShare = request.CanShare.Value;
+
+            if (request.CanDelete.HasValue)
+                participant.CanDelete = request.CanDelete.Value;
+
+            sharedTask.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Participant permissions updated successfully",
+                participant = new
+                {
+                    participant.UserId,
+                    participant.Username,
+                    permissions = new
+                    {
+                        participant.CanEdit,
+                        participant.CanAddSubtasks,
+                        participant.CanShare,
+                        participant.CanDelete
+                    }
+                }
+            });
         }
 
         // PUT: api/sharedtasks/{taskId}/permissions - Update shared task permissions (owner only)
@@ -628,6 +717,7 @@ namespace Nivoxar.Controllers
 
             return Ok(new { message = "Last edited updated successfully" });
         }
+
     }
 
     // Request models

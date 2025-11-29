@@ -92,11 +92,15 @@ export async function shareTask(taskId, taskTitle, userIds) {
 // ===== ADD PARTICIPANTS TO SHARED TASK =====
 export async function addParticipants(sharedTaskId, userIds) {
     try {
+        const payload = {
+            UserIds: userIds  // Capital U to match C# model
+        };
+
+        Logger.debug('📤 Adding participants:', { sharedTaskId, payload });
+
         const data = await apiRequest(`/sharedtasks/${sharedTaskId}/participants`, {
             method: 'POST',
-            body: JSON.stringify({
-                userIds: userIds
-            })
+            body: JSON.stringify(payload)
         });
         Logger.success(' Participants added successfully');
         return data;
