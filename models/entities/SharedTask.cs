@@ -39,6 +39,12 @@ namespace Nivoxar.Models.Entities
         public string Role { get; set; } = "editor"; // "owner" or "editor"
         public DateTime AddedAt { get; set; } = DateTime.UtcNow;
 
+        // Participant-specific permissions
+        public bool CanEdit { get; set; } = true;
+        public bool CanAddSubtasks { get; set; } = true;
+        public bool CanShare { get; set; } = false;  // Default: participants can't share
+        public bool CanDelete { get; set; } = false;
+
         // Navigation properties
         public virtual SharedTask SharedTask { get; set; } = null!;
         public virtual User User { get; set; } = null!;

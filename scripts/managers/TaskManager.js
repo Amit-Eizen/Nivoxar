@@ -38,6 +38,12 @@ export async function initTaskManager() {
             const sharedTasks = sharedTasksData.map(st => {
                 const task = st.task;
 
+                // Debug: log shared task data
+                Logger.debug(`📦 Shared Task ID ${st.id}: title="${task.title}", subTasks count: ${task.subTasks?.length || 0}`);
+                if (task.subTasks && task.subTasks.length > 0) {
+                    Logger.debug('   SubTasks:', task.subTasks);
+                }
+
                 // Add metadata for shared tasks
                 task.isSharedTask = true;
                 task.sharedTaskId = st.id;

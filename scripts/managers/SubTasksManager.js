@@ -135,6 +135,13 @@ export function renderSubTasks(task, container) {
         return;
     }
 
+    // Debug: log full subtask data
+    Logger.debug('🎨 Rendering subtasks for task:', task.id);
+    Logger.debug('📝 SubTasks data:', task.subTasks);
+    task.subTasks.forEach(st => {
+        Logger.debug(`  - SubTask ${st.id}: title="${st.title}", text="${st.text}"`);
+    });
+
     container.innerHTML = '';
 
     task.subTasks.forEach(subTask => {
@@ -142,7 +149,7 @@ export function renderSubTasks(task, container) {
         container.appendChild(subTaskEl);
     });
 
-    Logger.debug('🎨 Rendered subtasks for task:', task.id, task.subTasks.map(st => ({id: st.id, completed: st.completed})));
+    Logger.debug('✅ Rendered', task.subTasks.length, 'subtasks');
 }
 
 // Escape HTML to prevent XSS

@@ -83,7 +83,7 @@ function loadUserData() {
     // Use AuthMiddleware - user is already checked in initializeDashboard
     const currentUser = requireAuth();
     if (currentUser) {
-        dashboardState.user.name = currentUser.username || currentUser.name || currentUser.email;
+        dashboardState.user.name = currentUser.name || currentUser.username || currentUser.email;
         dashboardState.user.email = currentUser.email;
     }
 }

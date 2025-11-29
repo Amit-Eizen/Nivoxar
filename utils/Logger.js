@@ -9,7 +9,7 @@ const ENABLE_LOGS = !IS_PRODUCTION;
 // 1 = INFO (info, success, warning, error)
 // 2 = WARNING (warning, error only)
 // 3 = ERROR (error only)
-const LOG_LEVEL = 2; // Set to 2 to reduce console noise
+const LOG_LEVEL = 0; // Set to 0 to show all debug logs
 
 /**
  * Log levels
