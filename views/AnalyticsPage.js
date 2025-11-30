@@ -59,12 +59,16 @@ async function init() {
 // Data Loading
 async function loadAnalyticsData() {
     try {
-        // Get tasks from localStorage
-        const tasksJson = localStorage.getItem('nivoxar_tasks');
-        state.tasks = tasksJson ? JSON.parse(tasksJson) : [];
+        // Import getTasks dynamically to avoid circular dependency
+        const { getTasks } = await import('../services/TasksService.js');
+
+        // Get tasks from API
+        state.tasks = await getTasks();
+        Logger.debug('📊 Loaded tasks for analytics:', state.tasks.length);
 
         // Get categories from API
         state.categories = await getAllCategories();
+        Logger.debug('📊 Loaded categories for analytics:', state.categories.length);
 
     } catch (error) {
         Logger.error('Error loading data:', error);
@@ -329,9 +333,12 @@ function renderCategoryChart(tasks) {
         state.charts.category.destroy();
     }
     
-    // Prepare data - task.category is a string ID
+    // Prepare data - task.categoryId is a number
     const categoryData = state.categories.map(category => {
-        const categoryTasks = tasks.filter(task => task.category === category.id);
+        const categoryTasks = tasks.filter(task => {
+            // Compare as numbers to handle both string and number types
+            return parseInt(task.categoryId) === parseInt(category.id);
+        });
         return {
             label: category.name,
             value: categoryTasks.length,
@@ -525,12 +532,15 @@ function renderCategoryCompletionChart() {
         state.charts.categoryCompletion.destroy();
     }
     
-    // Prepare data - task.category is a string ID, task.completed not isCompleted
+    // Prepare data - task.categoryId is a number
     const categoryData = state.categories.map(category => {
-        const categoryTasks = tasks.filter(task => task.category === category.id);
+        const categoryTasks = tasks.filter(task => {
+            // Compare as numbers to handle both string and number types
+            return parseInt(task.categoryId) === parseInt(category.id);
+        });
         const completed = categoryTasks.filter(t => t.completed).length;
         const pending = categoryTasks.length - completed;
-        
+
         return {
             name: category.name,
             completed,
